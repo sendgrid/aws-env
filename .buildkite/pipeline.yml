@@ -64,7 +64,7 @@ steps:
   # On master builds, push the versioned image
   - label: 'Release :shipit:'
     command: 
-      - 'buildkite-agent artifact upload aws-env'
+      - 'buildkite-agent artifact download aws-env'
       - 'make release'
     branches: 'master'
 
