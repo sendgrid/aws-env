@@ -1,0 +1,22 @@
+#!/bin/bash
+# Replace the contents of this file with code that you would like to run
+# before every command inside of build-kite. Then remove the .sample from
+# the file name.
+
+# We use the global version of this file to ensure that the environment
+# variables that we need are exported correctly. If you need to export
+# any environment variables; you might do something like this:
+$(buildkite-agent meta-data set PIPELINE_REVISION '0.0.1')
+
+# If you're changing an environment variable inside of your build steps
+# and need to make sure that the current value is always accessible, you
+# might do something like this:
+
+# bk_array=(
+#   MY_VARIABLE
+# )
+# for a in "${bk_array[@]}"; do
+#   if res=$(buildkite-agent meta-data get $a); then
+#     export $a=$res
+#   fi
+# done
