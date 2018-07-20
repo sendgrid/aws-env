@@ -84,8 +84,11 @@ release:
 ifeq ($(BUILDKITE_PULL_REQUEST),)
 	@echo "Not releasing, not running in BuildKite"
 else
-	@github-release "$(VERSION)" $(BINARIES) --commit "master" \
-                                     --tag "$(VERSION)" \
-                                     --github-repository "$(NAMESPACE)/$(APPNAME)" \
-                                     --github-access-token "$(OPSBOT_GITHUB_KEY)"
+	@docker run \
+		-v $(WD):/code \
+		buildkite/github-release \
+		"$(VERSION)" code/$(BINARIES) --commit "master" \
+                                      --tag "$(VERSION)" \
+                                      --github-repository "$(NAMESPACE)/$(APPNAME)" \
+                                      --github-access-token "$(OPSBOT_GITHUB_KEY)"
 endif
