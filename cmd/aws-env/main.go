@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/sendgrid/aws-env/awsenv"
@@ -19,8 +20,9 @@ var (
 
 	app = initApp()
 
-	prefix string
-	region string
+	prefix  string
+	region  string
+	profile string
 )
 
 func initApp() *cli.App {
@@ -46,6 +48,12 @@ func initApp() *cli.App {
 			Destination: &region,
 			Value:       "us-east-1",
 		},
+		cli.StringFlag{
+			Name:        "profile",
+			EnvVar:      "AWS_ENV_PROFILE",
+			Usage:       "aws profile to use for auth",
+			Destination: &profile,
+		},
 	}
 	newApp.Action = run
 
@@ -58,7 +66,13 @@ func run(c *cli.Context) error {
 		"built_at":    builtAt,
 	}).Info("aws-env starting")
 
-	sess := session.Must(session.NewSession(aws.NewConfig().WithRegion(region)))
+	awsCfg := aws.NewConfig().WithRegion(region)
+	if profile != "" {
+		awsCfg = awsCfg.WithCredentials(credentials.NewSharedCredentials("", profile))
+	} else {
+		awsCfg = awsCfg.WithCredentials(credentials.NewEnvCredentials())
+	}
+	sess := session.Must(session.NewSession(awsCfg))
 	ssmClient := ssm.New(sess)
 
 	r := awsenv.NewReplacer(prefix, ssmClient)
