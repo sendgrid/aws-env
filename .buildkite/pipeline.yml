@@ -1,0 +1,86 @@
+steps:
+  # Changes to this variable will change whether or not your branch is
+  # promoted and uploaded.
+  # true = all commits will be packaged and uploaded to repository
+  # servers (without merging to master), but not deployed.
+  #
+  # false = master commits only will be packed and uploaded to repository
+  # servers, but not deployed
+  - label: 'set promote for stage'
+    command:
+      - 'buildkite-agent meta-data set PROMOTEFORSTAGE `echo false`'
+    branches: '!master'
+
+  - wait
+
+  # The purpose of the status check script is to add a comment to your
+  # pull requests that indicates whether or not this PR is ready to merge.
+  # If your repo is part of the SOX or SOC2 audit, do not remove this!
+  - label: 'status_check'
+    command: 'workflow status_checks'
+    branches: '!master'
+
+  # The purpose of this script is to determine what version you are attempting to bump to.
+  # This script will then write out that version into a file named 'version_wf', which
+  # will be used by the build system to create pull requests, and your app itself may
+  # use the file as well.
+  - label: 'prebuild_determine_version'
+    env:
+      # Use automatic versioning.
+      AUTOTAGREPO: true
+    command:
+      - 'workflow prebuild_determine_version'
+      # We set VERSION_WF here in BuildKite metadata and consume it via
+      # pipeline hooks in every other step. If we don't do this,
+      # then version_wf will be missing.
+      - 'buildkite-agent meta-data set VERSION_WF `cat version_wf`'
+
+  - wait
+
+  ##############################
+  # Build, Test, Vet
+  ##############################
+  - label: 'Build Binary'
+    command: 
+      - 'make build-docker'
+      - 'buildkite-agent artifact upload aws-env'
+
+  - label: 'Unit Tests & Code Coverage' 
+    command: 'make test && make report'
+    artifact_paths: 'coverage.html'
+
+  - label: 'Vet'
+    command: 'make vet'
+
+  - label: 'Vet (Hard)'
+    command: 'make vet-hard'
+
+  - wait
+
+  ##############################
+  # Package and Publish
+  ##############################
+
+  # On master builds, push the versioned image
+  - label: 'Release :shipit:'
+    command: 
+      - 'buildkite-agent artifact upload aws-env'
+      - 'make release'
+    branches: 'master'
+
+  - wait
+
+  ##############################
+  # Post-Publish
+  ##############################
+
+  # This script will use the previously written version_wf file to update the version
+  # inside of github, as well as create release notes with a link back to the
+  # merged pull request.
+  #- label: 'postbuild_tagrepo_update_releasenotes'
+  #  env:
+  #    # Use automatic versioning.
+  #    AUTOTAGREPO: true
+  #    # Collapse the new release with the previous release.
+  #    WF_COLLAPSERELEASE: true
+  #  command: 'workflow postbuild_tagrepo_update_releasenotes'
