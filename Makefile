@@ -80,7 +80,7 @@ vet-hard:
 		gometalinter --vendor --deadline 1h ./..."
 
 .PHONY: release
-release:
+release: 
 ifeq ($(BUILDKITE_PULL_REQUEST),)
 	@echo "Not releasing, not running in BuildKite"
 else

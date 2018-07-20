@@ -41,7 +41,9 @@ steps:
   # Build, Test, Vet
   ##############################
   - label: 'Build Binary'
-    command: 'make build-docker'
+    command: 
+      - 'make build-docker'
+      - 'buildkite-agent artifact upload aws-env'
 
   - label: 'Unit Tests & Code Coverage' 
     command: 'make test && make report'
@@ -61,7 +63,9 @@ steps:
 
   # On master builds, push the versioned image
   - label: 'Release :shipit:'
-    command: 'make release'
+    command: 
+      - 'buildkite-agent artifact upload aws-env'
+      - 'make release'
     branches: 'master'
 
   - wait
