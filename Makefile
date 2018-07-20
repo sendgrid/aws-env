@@ -87,7 +87,7 @@ else
 	@docker run \
 		-v $(WD):/code \
 		buildkite/github-release \
-		"$(VERSION)" code/$(BINARIES) --commit "master" \
+		"$(VERSION)" code/build/$(BINARIES) --commit "master" \
                                       --tag "$(VERSION)" \
                                       --github-repository "$(NAMESPACE)/$(APPNAME)" \
                                       --github-access-token "$(OPSBOT_GITHUB_KEY)"
