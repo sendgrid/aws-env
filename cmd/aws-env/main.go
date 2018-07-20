@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/sendgrid/aws-env/awsenv"
@@ -66,12 +68,21 @@ func run(c *cli.Context) error {
 		"built_at":    builtAt,
 	}).Info("aws-env starting")
 
-	awsCfg := aws.NewConfig().WithRegion(region)
+	// First try the ec2 metadata service (kube2iam)
+	// Then try the environment variables
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&ec2rolecreds.EC2RoleProvider{
+				Client: ec2metadata.New(session.Must(session.NewSession())),
+			},
+			&credentials.EnvProvider{},
+		})
+	// Unless profile is specified, then that wins priority
 	if profile != "" {
-		awsCfg = awsCfg.WithCredentials(credentials.NewSharedCredentials("", profile))
-	} else {
-		awsCfg = awsCfg.WithCredentials(credentials.NewEnvCredentials())
+		creds = credentials.NewSharedCredentials("", profile)
 	}
+
+	awsCfg := aws.NewConfig().WithRegion(region).WithCredentials(creds)
 	sess := session.Must(session.NewSession(awsCfg))
 	ssmClient := ssm.New(sess)
 
