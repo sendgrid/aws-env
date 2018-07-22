@@ -2,7 +2,9 @@
 
 This is a small utility to help populate environment variables using secrets stored in AWS Parameter Store.
 
-Loosely based on [https://github.com/Droplr/aws-env] which exports a portion of Parameter Store as environment variables, this tool allows you greater control over what will be exported.
+Based loosely on [Droplr/aws-env](https://github.com/Droplr/aws-env): a tool that exports a portion of Parameter Store as environment variables.
+
+Instead, this tool allows you greater control over what will be exported, and doesn't force environment variable naming upon you (easier to adapt for exising applications).
 
 ## How it works
  - aws-env looks through the environment for any variables whose value begins with a special prefix (`awsenv:` by default).
