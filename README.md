@@ -60,7 +60,7 @@ RUN apk update && apk upgrade && \
 RUN wget https://github.com/sendgrid/aws-env/releases/download/1.0.0/aws-env -O /bin/aws-env && \
   chmod +x /bin/aws-env
 
-CMD eval $(aws-env --region us-east-2) && /my-app
+CMD aws-env --region us-east-2 /my-app
 ```
 
 ## Auth
@@ -75,8 +75,10 @@ The default environment variable value prefix is `awsenv:`, this can be changed 
 
 ## Considerations
 
-* aws-env uses `$'string'` notation to support multi-line variables export. For this reason, to use aws-env, it's required to switch shell to /bin/bash:
+* When used without a command, aws-env uses `$'string'` notation to support multi-line variables export. For this reason, to use aws-env in this way, it's required to switch shell to /bin/bash:
 ```
 CMD ["/bin/bash", "-c", "eval $(aws-env) && ./my-app"]
 ```
 This isn't necessary if your Docker image's default shell is already bash.
+
+Using the command invocation style does not have this limitation.

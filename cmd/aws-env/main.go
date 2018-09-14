@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -27,6 +28,12 @@ var (
 	profile string
 )
 
+const description = `
+aws-env behaves similarly to the posix env command: if passed a command (with
+optional arguments), that command will be invoked with additional environment
+variables set from parameter store. If no command is passed, aws-env will
+output export statements suitable for use with eval or source shell builtins.`
+
 func initApp() *cli.App {
 	newApp := cli.NewApp()
 	newApp.Name = "aws-env"
@@ -35,6 +42,9 @@ func initApp() *cli.App {
 		{Name: "Michael Robinson", Email: "michael.robinson@sendgrid.com"},
 	}
 	newApp.Usage = "set environment variables with values from parameter store"
+	newApp.ArgsUsage = "[program [arguments...]]"
+	newApp.Description = description
+	newApp.Action = run
 	newApp.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "prefix",
@@ -57,10 +67,10 @@ func initApp() *cli.App {
 			Destination: &profile,
 		},
 	}
-	newApp.Action = run
 
 	return newApp
 }
+
 func run(c *cli.Context) error {
 	log.WithFields(log.Fields{
 		"app_version": version,
@@ -93,17 +103,37 @@ func run(c *cli.Context) error {
 		os.Exit(1)
 	}
 
-	if len(newVars) == 0 {
+	if c.NArg() == 0 {
+		return dump(newVars)
+	}
+	args := c.Args()
+	return invoke(newVars, args.First(), args.Tail())
+}
+
+func dump(vars map[string]string) error {
+	if len(vars) == 0 {
 		log.Info("nothing to replace")
 		return nil
 	}
-
-	for name, newVal := range newVars {
+	for name, newVal := range vars {
 		log.WithField("envvar", name).Info("replacing")
 		fmt.Printf("export %s=$'%s'\n", name, newVal)
 	}
-
 	return nil
+}
+
+func invoke(vars map[string]string, prog string, args []string) error {
+	env := os.Environ()
+	for k, v := range vars {
+		log.WithField("envvar", k).Info("replacing")
+		env = append(env, k+"="+v)
+	}
+	cmd := exec.Command(prog, args...) // nolint: gosec
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func main() {
