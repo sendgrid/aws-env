@@ -128,7 +128,7 @@ func invoke(vars map[string]string, prog string, args []string) error {
 		log.WithField("envvar", k).Info("replacing")
 		env = append(env, k+"="+v)
 	}
-	cmd := exec.Command(prog, args...)
+	cmd := exec.Command(prog, args...) // nolint: gosec
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
