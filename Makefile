@@ -18,7 +18,7 @@ build: $(BINARIES)
 
 $(BINARIES): $(GO_FILES)
 	@echo "[$@]\n\tVersion: $(VERSION)\n\tBuild Date: $(BUILD_DATE)\n\tGit Commit: $(GIT_COMMIT)"
-	@go build -a \
+	@go build -a -tags netgo \
 		-ldflags '-w -X "main.version=$(VERSION)" -X "main.builtAt=$(BUILD_DATE)" -X "main.gitHash=$(GIT_COMMIT)" -extldflags -static' \
 		github.com/$(NAMESPACE)/$(APPNAME)/cmd/$@
 
