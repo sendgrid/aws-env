@@ -69,7 +69,7 @@ func initApp() *cli.App {
 			Destination: &profile,
 		},
 		cli.StringFlag{
-			Name:        "assume",
+			Name:        "assume-role",
 			EnvVar:      "AWS_ENV_ASSUME_ROLE",
 			Usage:       "aws role to assume after initial creds",
 			Destination: &assumeRole,
