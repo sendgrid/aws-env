@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/sendgrid/aws-env/awsenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -23,9 +24,10 @@ var (
 
 	app = initApp()
 
-	prefix  string
-	region  string
-	profile string
+	prefix     string
+	region     string
+	profile    string
+	assumeRole string
 )
 
 const description = `
@@ -66,6 +68,12 @@ func initApp() *cli.App {
 			Usage:       "aws profile to use for auth",
 			Destination: &profile,
 		},
+		cli.StringFlag{
+			Name:        "assume",
+			EnvVar:      "AWS_ENV_ASSUME_ROLE",
+			Usage:       "aws role to assume after initial creds",
+			Destination: &assumeRole,
+		},
 	}
 
 	return newApp
@@ -90,6 +98,32 @@ func run(c *cli.Context) error {
 	// Unless profile is specified, then that wins priority
 	if profile != "" {
 		creds = credentials.NewSharedCredentials("", profile)
+	}
+
+	// If assumeRole is specified, then call sts and get further assume creds
+	if assumeRole != "" {
+		awsCfg := aws.NewConfig().WithRegion(region).WithCredentials(creds)
+		sess := session.Must(session.NewSession(awsCfg))
+		stsClient := sts.New(sess)
+
+		assumeRoleInput := &sts.AssumeRoleInput{
+			RoleArn:         aws.String(assumeRole),
+			RoleSessionName: aws.String("awsenv_assume_role_session"),
+		}
+
+		assumeRoleOutput, err := stsClient.AssumeRole(assumeRoleInput)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"assume_role": assumeRole,
+			}).Error("unable to assume role")
+			return err
+		}
+
+		creds = credentials.NewStaticCredentials(
+			aws.StringValue(assumeRoleOutput.Credentials.AccessKeyId),
+			aws.StringValue(assumeRoleOutput.Credentials.SecretAccessKey),
+			aws.StringValue(assumeRoleOutput.Credentials.SessionToken),
+		)
 	}
 
 	awsCfg := aws.NewConfig().WithRegion(region).WithCredentials(creds)
