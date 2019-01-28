@@ -73,6 +73,12 @@ aws-env defaults to looking at parameter store in the `us-east-1` region. You ca
 ## Prefix
 The default environment variable value prefix is `awsenv:`, this can be changed using the `--prefix` flag (or `AWS_ENV_PREFIX` env var).
 
+## Assume Role
+aws-env exposes an `--assume-role` flag (or `AWS_ENV_ASSUME_ROLE`). This can be used to further assume roles if you have to gain access using a chain of roles.
+
+### Example Assume Role
+In Kubernetes, if you are using Annotations with a service role, `kube2iam` will assume your service role using the metadata service. You can then use the `--assume-role` flag to have your service role assume the ssm role to retrieve securely stored parameters with aws-env.
+
 ## Considerations
 
 * When used without a command, aws-env uses `$'string'` notation to support multi-line variables export. For this reason, to use aws-env in this way, it's required to switch shell to /bin/bash:
