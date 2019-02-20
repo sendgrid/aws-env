@@ -6,6 +6,13 @@ Based loosely on [Droplr/aws-env](https://github.com/Droplr/aws-env): a tool tha
 
 Instead, this tool allows you greater control over what will be exported, and doesn't force environment variable naming upon you (easier to adapt for exising applications).
 
+Jump to:
+ - [How it works](#how-it-works)
+ - [Usage](#usage)
+ - [Auth](#auth)
+ - [Region](#region)
+ - [Prefix](#prefix)
+
 ## How it works
  - aws-env looks through the environment for any variables whose value begins with a special prefix (`awsenv:` by default).
  - It expects that those variables have a parameter store key after the `:`.
