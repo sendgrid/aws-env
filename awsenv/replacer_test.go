@@ -2,12 +2,11 @@ package awsenv
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,7 +99,7 @@ func (m mockParamStore) GetParameter(input *ssm.GetParameterInput) (*ssm.GetPara
 func (m mockParamStore) fetch(name string) (string, error) {
 	val, ok := m[name]
 	if !ok {
-		return "", fmt.Errorf("parameter %q not found", name)
+		return "", errors.Errorf("parameter %q not found", name)
 	}
 	return val, nil
 }
