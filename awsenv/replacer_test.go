@@ -1,97 +1,127 @@
 package awsenv
 
 import (
+	"context"
 	"errors"
-	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/stretchr/testify/require"
 )
 
-func TestReplacerNoop(t *testing.T) {
-	mockGetter := &mockParameterGetter{f: func(in *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
+func TestReplacer_Replace_noop(t *testing.T) {
+	mockGetter := mockParamsGetter(func(context.Context, []string) (map[string]string, error) {
 		return nil, errors.New("forced")
-	}}
-
-	withEnv(t, nil, func() {
-		r := NewReplacer("awsenv:", mockGetter)
-		newVars, err := r.ReplaceAll()
-		require.NoError(t, err, "expected no error")
-		require.Len(t, newVars, 0, "expected no replacements")
 	})
+
+	env := fakeEnv{}
+	env.install()
+
+	ctx := context.Background()
+	r := NewReplacer("awsenv:", mockGetter)
+	err := r.ReplaceAll(ctx)
+	require.NoError(t, err, "expected no error")
+	require.Empty(t, env)
 }
 
 func TestReplacerMultiple(t *testing.T) {
-	withEnv(t, map[string]string{
+	env := fakeEnv{
 		"DB_PASSWORD":       "test",                       // no matching prefix
 		"SOME_SECRET":       "awsenv:/param/path/here",    // match
 		"SOME_OTHER_SECRET": "awsenv:/param/path/here/v2", // match
-	}, func() {
-		r := NewReplacer("awsenv:", mockParamStore(map[string]string{
-			"/param/path/here":    "val1",
-			"/param/path/here/v2": "val2",
-		}))
-		newVars, err := r.ReplaceAll()
-		require.NoError(t, err, "expected no error")
-		require.Len(t, newVars, 2, "expected 2 replacements")
-		require.Equal(t, "val1", newVars["SOME_SECRET"], "expected var to be set correctly")
-		require.Equal(t, "val2", newVars["SOME_OTHER_SECRET"], "expected var to be set correctly")
-	})
+	}
+	env.install()
+
+	params := mockParamStore{
+		"/param/path/here":    "val1",
+		"/param/path/here/v2": "val2",
+	}
+
+	r := NewReplacer("awsenv:", params)
+
+	ctx := context.Background()
+	err := r.ReplaceAll(ctx)
+
+	require.NoError(t, err, "expected no error")
+
+	want := fakeEnv{
+		"DB_PASSWORD":       "test", // unchanged
+		"SOME_SECRET":       "val1", // replaced
+		"SOME_OTHER_SECRET": "val2", // replaced
+	}
+
+	require.Equal(t, want, env)
 }
 
 func TestReplacerNotFound(t *testing.T) {
-	withEnv(t, map[string]string{
+	env := fakeEnv{
 		"DB_PASSWORD": "test",                    // no matching prefix
 		"SOME_SECRET": "awsenv:/param/path/here", // match
-	}, func() {
-		r := NewReplacer("awsenv:", mockParamStore(map[string]string{}))
-		_, err := r.ReplaceAll()
-		require.Error(t, err, "expected an error")
-	})
+	}
+	env.install()
+
+	var params mockParamStore
+
+	r := NewReplacer("awsenv:", params)
+
+	ctx := context.Background()
+	err := r.ReplaceAll(ctx)
+
+	require.Error(t, err, "expected an error")
 }
 
 func TestReplacerMissing(t *testing.T) {
-	mockGetter := &mockParameterGetter{f: func(in *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
-		return &ssm.GetParameterOutput{Parameter: &ssm.Parameter{}}, nil
-	}}
-
-	withEnv(t, map[string]string{
+	env := fakeEnv{
 		"SOME_SECRET": "awsenv:/param/path/here/doesnt/exist", // match
-	}, func() {
-		r := NewReplacer("awsenv:", mockGetter)
-		_, err := r.ReplaceAll()
-		require.Error(t, err, "expected an error")
-	})
-}
+	}
+	env.install()
 
-func withEnv(t *testing.T, vars map[string]string, f func()) {
-	for name, val := range vars {
-		require.NoError(t, os.Setenv(name, val), "expected to set env var")
+	getter := func(context.Context, []string) (map[string]string, error) {
+		return nil, nil
 	}
 
-	f()
+	r := NewReplacer("awsenv:", mockParamsGetter(getter))
+	ctx := context.Background()
 
-	for name := range vars {
-		require.NoError(t, os.Unsetenv(name), "expected to unset env var")
-	}
+	err := r.ReplaceAll(ctx)
+	require.Error(t, err, "expected an error")
 }
 
-func mockParamStore(vals map[string]string) ParameterGetter {
-	return &mockParameterGetter{f: func(in *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
-		val, ok := vals[*in.Name]
+type mockParamStore map[string]string
+
+func (m mockParamStore) GetParams(ctx context.Context, paths []string) (map[string]string, error) {
+	result := make(map[string]string, len(paths))
+	for _, path := range paths {
+		val, ok := m[path]
 		if !ok {
 			return nil, errors.New("not found")
 		}
-		return &ssm.GetParameterOutput{Parameter: &ssm.Parameter{Value: aws.String(val)}}, nil
-	}}
+		result[path] = val
+	}
+	return result, nil
 }
 
-type mockParameterGetter struct {
-	f func(*ssm.GetParameterInput) (*ssm.GetParameterOutput, error)
+type fakeEnv map[string]string
+
+func (e fakeEnv) install() {
+	environ = e.environ
+	setenv = e.setenv
 }
 
-func (m *mockParameterGetter) GetParameter(in *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
-	return m.f(in)
+func (e fakeEnv) environ() []string {
+	vars := make([]string, 0, len(e))
+	for name, val := range e {
+		vars = append(vars, name+"="+val)
+	}
+	return vars
+}
+
+func (e fakeEnv) setenv(name, val string) error {
+	e[name] = val
+	return nil
+}
+
+type mockParamsGetter func(context.Context, []string) (map[string]string, error)
+
+func (f mockParamsGetter) GetParams(ctx context.Context, paths []string) (map[string]string, error) {
+	return f(ctx, paths)
 }

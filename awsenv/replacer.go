@@ -1,89 +1,129 @@
 package awsenv
 
 import (
+	"context"
 	"os"
-	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
-// ParameterGetter is implemented by the ssm client
-type ParameterGetter interface {
-	GetParameter(*ssm.GetParameterInput) (*ssm.GetParameterOutput, error)
+var (
+	setenv  = os.Setenv
+	environ = os.Environ
+)
+
+// ParamsGetter represents a data source that can translate parameter names
+// or paths into parameter values.
+type ParamsGetter interface {
+	GetParams(ctx context.Context, names []string) (map[string]string, error)
 }
 
-// Replacer handles replacing existing environment variables with parameter values
-type Replacer struct {
-	ssm    ParameterGetter
-	prefix string
+// LimitedParamsGetter represents a ParamsGetter that can describe its own
+// request limit. A ParamsGetter implementing this interface will not be
+// given more names per request than the number returned by GetParamsLimit,
+// unless it returns a value <= 0, which will be interpreted as unlimited.
+type LimitedParamsGetter interface {
+	ParamsGetter
+	GetParamsLimit() int
 }
 
 // NewReplacer returns a Replacer that will operate on env vars with the
-// given value prefix, using the given ParameterGetter.
-func NewReplacer(envValuePrefix string, ssm ParameterGetter) *Replacer {
+// given value prefix, using the given ParamsGetter.
+func NewReplacer(envValuePrefix string, ssm ParamsGetter) *Replacer {
 	return &Replacer{
 		ssm:    ssm,
 		prefix: envValuePrefix,
 	}
 }
 
-// ReplaceAll looks at all environment variables and returns
-// a set of new variables to apply.
-func (r *Replacer) ReplaceAll() (map[string]string, error) {
-	replacements := make(map[string]string)
+// Replacer handles replacing existing environment variables with values
+// retrieved from AWS Parameter Store.
+type Replacer struct {
+	ssm    ParamsGetter
+	prefix string
+}
 
-	// Get all environment vars
-	vars, err := getAllVars()
+// ReplaceAll overwrites applicable environment variables with values
+// retrieved from Parameter Store. ReplaceAll will attempt to replace
+// as many values as possible, after which it will return the first error
+// that occurred.
+func (r *Replacer) ReplaceAll(ctx context.Context) error {
+	vars, err := r.Replacements(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list environment")
+		return err
 	}
 
-	// Check each once for prefix
 	for name, val := range vars {
-		if strings.HasPrefix(val, r.prefix) {
-			// Get the replacement
-			newVal, err := r.replaceOne(val)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to replace var: %s", name)
-			}
-			replacements[name] = newVal
+		suberr := setenv(name, val)
+		if err == nil && suberr != nil {
+			err = suberr
 		}
 	}
 
-	return replacements, nil
+	return err
 }
 
-func (r *Replacer) replaceOne(oldVal string) (string, error) {
-	// Trim off the prefix
-	oldVal = strings.TrimPrefix(oldVal, r.prefix)
+// Replacements returns a map of environment variable names to new values
+// that have been fetched from Parameter Store.
+func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) {
+	// param path -> env name
+	pathvars := pathmap(r.prefix, environ())
 
-	// Look up the new value in parameter store
-	out, err := r.ssm.GetParameter(&ssm.GetParameterInput{
-		Name:           aws.String(oldVal),
-		WithDecryption: aws.Bool(true),
-	})
+	// param path -> env value
+	pathvals, err := r.fetch(ctx, keys(pathvars))
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get parameter: %s", oldVal)
+		return nil, err
 	}
 
-	if out.Parameter.Value == nil {
-		return "", errors.Errorf("parameter is empty: %s", oldVal)
-	}
+	// env name -> env value
+	dest := make(map[string]string, len(pathvals))
+	translate(dest, pathvars, pathvals)
 
-	return *out.Parameter.Value, nil
+	return dest, nil
 }
 
-func getAllVars() (map[string]string, error) {
-	rawVars := os.Environ()
-	vars := make(map[string]string, len(rawVars))
-	for _, rawVar := range rawVars {
-		parts := strings.SplitN(rawVar, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.Errorf("got unexpected env var: %s", rawVar)
-		}
-		vars[parts[0]] = parts[1]
+func (r *Replacer) fetch(ctx context.Context, paths []string) (map[string]string, error) {
+	eg, ctx := errgroup.WithContext(ctx)
+
+	var limit int
+
+	lpg, ok := r.ssm.(LimitedParamsGetter)
+	if ok {
+		limit = lpg.GetParamsLimit()
 	}
-	return vars, nil
+
+	batches := chunk(limit, paths)
+	results := make([]map[string]string, len(batches))
+
+	for i := range batches {
+
+		// copied to avoid race condition
+		i := i
+		batch := batches[i]
+
+		eg.Go(func() error {
+			var err error
+			results[i], err = r.ssm.GetParams(ctx, batch)
+			return err
+		})
+	}
+
+	err := eg.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	// merge separate batch results into a single map
+	dest := make(map[string]string, len(paths))
+	merge(dest, results)
+
+	for _, path := range paths {
+		_, ok := dest[path]
+		if !ok {
+			return dest, errors.Errorf("awsenv: param not found: %q", path)
+		}
+	}
+
+	return dest, nil
 }
