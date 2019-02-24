@@ -1,89 +1,180 @@
 package awsenv
 
 import (
+	"context"
+	"errors"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
-// ParameterGetter is implemented by the ssm client
+const batchLimit = 10
+
+var (
+	setenv  = os.Setenv
+	environ = os.Environ
+)
+
+// ParameterGetter is implemented by the ssm client.
 type ParameterGetter interface {
 	GetParameter(*ssm.GetParameterInput) (*ssm.GetParameterOutput, error)
 }
 
-// Replacer handles replacing existing environment variables with parameter values
-type Replacer struct {
-	ssm    ParameterGetter
-	prefix string
+// ParametersGetter is more efficient than ParameterGetter and is also
+// implemented by the ssm client.
+type ParametersGetter interface {
+	GetParametersWithContext(aws.Context, *ssm.GetParametersInput, ...request.Option) (*ssm.GetParametersOutput, error)
 }
 
 // NewReplacer returns a Replacer that will operate on env vars with the
-// given value prefix, using the given ParameterGetter.
+// given value prefix, using the given ParamsGetter. If ssm also implements
+// ParametersGetter, that interface will be used instead.
+//
 func NewReplacer(envValuePrefix string, ssm ParameterGetter) *Replacer {
 	return &Replacer{
-		ssm:    ssm,
+		ssm:    wrap(ssm),
 		prefix: envValuePrefix,
 	}
 }
 
-// ReplaceAll looks at all environment variables and returns
-// a set of new variables to apply.
-func (r *Replacer) ReplaceAll() (map[string]string, error) {
-	replacements := make(map[string]string)
+// Replacer handles replacing existing environment variables with values
+// retrieved from AWS Parameter Store.
+type Replacer struct {
+	ssm    ParametersGetter
+	prefix string
+}
 
-	// Get all environment vars
-	vars, err := getAllVars()
+// Apply overwrites applicable environment variables with values retrieved
+// from Parameter Store. ReplaceAll will attempt to replace as many values
+// as possible, after which it will return the first error that occurred.
+func (r *Replacer) Apply(ctx context.Context) error {
+	vars, err := r.Replacements(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list environment")
+		return err
 	}
 
-	// Check each once for prefix
 	for name, val := range vars {
-		if strings.HasPrefix(val, r.prefix) {
-			// Get the replacement
-			newVal, err := r.replaceOne(val)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to replace var: %s", name)
-			}
-			replacements[name] = newVal
+		suberr := setenv(name, val)
+		if err == nil && suberr != nil {
+			err = suberr
 		}
 	}
 
-	return replacements, nil
+	return err
 }
 
-func (r *Replacer) replaceOne(oldVal string) (string, error) {
-	// Trim off the prefix
-	oldVal = strings.TrimPrefix(oldVal, r.prefix)
+// Replacements returns a map of environment variable names to new values
+// that have been fetched from Parameter Store.
+func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) {
+	// param path -> env name
+	pathvars := pathmap(r.prefix, environ())
 
-	// Look up the new value in parameter store
-	out, err := r.ssm.GetParameter(&ssm.GetParameterInput{
-		Name:           aws.String(oldVal),
-		WithDecryption: aws.Bool(true),
-	})
+	// param path -> env value
+	pathvals, err := r.fetch(ctx, keys(pathvars))
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get parameter: %s", oldVal)
+		return nil, err
 	}
 
-	if out.Parameter.Value == nil {
-		return "", errors.Errorf("parameter is empty: %s", oldVal)
+	// env name -> env value
+	dest := make(map[string]string, len(pathvals))
+	translate(dest, pathvars, pathvals)
+
+	if len(dest) != len(pathvars) {
+		err = errors.New("missing parameters")
 	}
 
-	return *out.Parameter.Value, nil
+	return dest, err
 }
 
-func getAllVars() (map[string]string, error) {
-	rawVars := os.Environ()
-	vars := make(map[string]string, len(rawVars))
-	for _, rawVar := range rawVars {
-		parts := strings.SplitN(rawVar, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.Errorf("got unexpected env var: %s", rawVar)
-		}
-		vars[parts[0]] = parts[1]
+// ReplaceAll behaves like Replacements, but does not accept a context. To
+// directly overwrite values in the process environment, use Apply.
+func (r *Replacer) ReplaceAll() (map[string]string, error) {
+	return r.Replacements(context.Background())
+}
+
+func (r *Replacer) fetch(ctx context.Context, paths []string) (map[string]string, error) {
+
+	// eg is not ctx-wrapped, since we want to fetch as many params as
+	// possible, even if some fail. External cancellations on the passed ctx
+	// will be respected.
+	var eg errgroup.Group
+
+	decryption := true
+	batches := chunk(batchLimit, paths)
+	results := make([][]*ssm.Parameter, len(batches))
+
+	for i := range batches {
+
+		// copied to avoid race condition
+		i := i
+		batch := batches[i]
+
+		eg.Go(func() error {
+			input := &ssm.GetParametersInput{
+				Names:          aws.StringSlice(batch),
+				WithDecryption: &decryption,
+			}
+
+			output, err := r.ssm.GetParametersWithContext(ctx, input)
+			if err == nil {
+				results[i] = output.Parameters
+			}
+
+			return err
+		})
 	}
-	return vars, nil
+
+	err := eg.Wait()
+
+	// merge separate batch results into a single map
+	dest := make(map[string]string, len(paths))
+
+	for _, params := range results {
+		for _, param := range params {
+			dest[*param.Name] = *param.Value
+		}
+	}
+
+	return dest, err
+}
+
+func wrap(ssm ParameterGetter) ParametersGetter {
+	v, ok := ssm.(ParametersGetter)
+	if ok {
+		return v
+	}
+	return wrapper{ssm}
+}
+
+// wrapper implements ParametersGetter backed by a ParameterGetter.
+type wrapper struct{ ParameterGetter }
+
+func (w wrapper) GetParametersWithContext(_ aws.Context, input *ssm.GetParametersInput, _ ...request.Option) (*ssm.GetParametersOutput, error) {
+	var firstErr error
+
+	output := new(ssm.GetParametersOutput)
+
+	for _, name := range input.Names {
+		singleInput := &ssm.GetParameterInput{
+			Name:           name,
+			WithDecryption: input.WithDecryption,
+		}
+
+		singleOutput, err := w.GetParameter(singleInput)
+		if err == nil && singleOutput.Parameter != nil {
+			output.Parameters = append(output.Parameters, singleOutput.Parameter)
+			continue
+		}
+
+		if firstErr == nil {
+			firstErr = err
+		}
+
+		output.InvalidParameters = append(output.InvalidParameters, name)
+	}
+
+	return output, firstErr
 }

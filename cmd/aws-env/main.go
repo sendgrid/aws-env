@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/sendgrid/aws-env/awsenv"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -12,9 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/sendgrid/aws-env/awsenv"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 )
 
 var (
@@ -131,15 +133,18 @@ func run(c *cli.Context) error {
 	ssmClient := ssm.New(sess)
 
 	r := awsenv.NewReplacer(prefix, ssmClient)
-	newVars, err := r.ReplaceAll()
+
+	ctx := context.Background()
+	newVars, err := r.Replacements(ctx)
 	if err != nil {
 		log.WithError(err).Error("failed to replace env vars")
-		os.Exit(1)
+		return err
 	}
 
 	if c.NArg() == 0 {
 		return dump(newVars)
 	}
+
 	args := c.Args()
 	return invoke(newVars, args.First(), args.Tail())
 }
@@ -149,21 +154,25 @@ func dump(vars map[string]string) error {
 		log.Info("nothing to replace")
 		return nil
 	}
+
 	for name, newVal := range vars {
 		log.WithField("envvar", name).Info("replacing")
 		fmt.Printf("export %s=$'%s'\n", name, newVal)
 	}
+
 	return nil
 }
 
 func invoke(vars map[string]string, prog string, args []string) error {
-	env := os.Environ()
-	for k, v := range vars {
-		log.WithField("envvar", k).Info("replacing")
-		env = append(env, k+"="+v)
+	for name, newVal := range vars {
+		log.WithField("envvar", name).Info("replacing")
+		err := os.Setenv(name, newVal)
+		if err != nil {
+			return err
+		}
 	}
+
 	cmd := exec.Command(prog, args...) // nolint: gosec
-	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
