@@ -55,7 +55,7 @@ func initApp() *cli.App {
 			Name:        "prefix",
 			EnvVar:      "AWS_ENV_PREFIX",
 			Usage:       "prefix shared by values that should be replaced (value, NOT name)",
-			Value:       "awsenv:",
+			Value:       awsenv.DefaultPrefix,
 			Destination: &prefix,
 		},
 		cli.StringFlag{

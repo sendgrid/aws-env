@@ -8,7 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReplacer_Replace_noop(t *testing.T) {
+func TestReplacer_panic(t *testing.T) {
+	mockGetter := mockParamsGetter(func(context.Context, []string) (map[string]string, error) {
+		return nil, errors.New("no implementation")
+	})
+
+	require.Panics(t, func() { NewReplacer("", mockGetter) })
+}
+
+func TestReplacer_ReplaceAll_noop(t *testing.T) {
 	mockGetter := mockParamsGetter(func(context.Context, []string) (map[string]string, error) {
 		return nil, errors.New("forced")
 	})
@@ -36,7 +44,7 @@ func TestReplacerMultiple(t *testing.T) {
 		"/param/path/here/v2": "val2",
 	}
 
-	r := NewReplacer("awsenv:", params)
+	r := NewReplacer(DefaultPrefix, params)
 
 	ctx := context.Background()
 	err := r.ReplaceAll(ctx)

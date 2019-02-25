@@ -13,6 +13,9 @@ var (
 	environ = os.Environ
 )
 
+// DefaultPrefix holds the standard environment value prefix.
+var DefaultPrefix = "awsenv:"
+
 // ParamsGetter represents a data source that can translate parameter names
 // or paths into parameter values.
 type ParamsGetter interface {
@@ -30,7 +33,13 @@ type LimitedParamsGetter interface {
 
 // NewReplacer returns a Replacer that will operate on env vars with the
 // given value prefix, using the given ParamsGetter.
+//
+// NewReplacer will panic if envValuePrefix is the empty string.
 func NewReplacer(envValuePrefix string, ssm ParamsGetter) *Replacer {
+	if envValuePrefix == "" {
+		panic("awsenv: envValuePrefix must be non-empty")
+	}
+
 	return &Replacer{
 		ssm:    ssm,
 		prefix: envValuePrefix,
