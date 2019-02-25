@@ -29,6 +29,9 @@ type ParametersGetter interface {
 	GetParametersWithContext(aws.Context, *ssm.GetParametersInput, ...request.Option) (*ssm.GetParametersOutput, error)
 }
 
+// DefaultPrefix holds the standard environment value prefix.
+const DefaultPrefix = "awsenv:"
+
 // NewReplacer returns a Replacer that will operate on env vars with the
 // given value prefix, using the given ParamsGetter. If ssm also implements
 // ParametersGetter, that interface will be used instead.
