@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMin(t *testing.T) {
@@ -73,9 +75,8 @@ func TestKeys(t *testing.T) {
 	for _, test := range tests {
 		got := keys(test.input)
 		sort.Strings(got)
-		if !reflect.DeepEqual(got, test.want) {
-			t.Errorf("keys(%v) = %v, want %v", test.input, got, test.want)
-		}
+		assert.Equal(t, test.want, got,
+			"keys(%v) = %v, want %v", test.input, got, test.want)
 	}
 }
 
