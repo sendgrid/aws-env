@@ -8,6 +8,7 @@ import (
 	"github.com/sendgrid/aws-env/awsenv"
 )
 
+// NewParamsGetter implements awsenv.ParamsGetter using a v2 ssm client.
 func NewParamsGetter(ssm *ssm.SSM) awsenv.LimitedParamsGetter {
 	return &fetcher{ssm, true}
 }
