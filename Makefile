@@ -60,7 +60,7 @@ vet: build-docker
 		go vet -v ./...
 
 .PHONY: vet-hard
-vet-hard:
+vet-hard: build-docker
 	@docker run --rm aws-env \
 		gometalinter --vendor --deadline 1h ./...
 
