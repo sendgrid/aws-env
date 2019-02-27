@@ -36,7 +36,7 @@ coverage.txt: build-docker $(GO_FILES)
 		-v $(WD):/code \
 		aws-env \
 		sh -c "\
-		go test -v -race -coverprofile=coverage.out ./... && \
+		go test -mod readonly -v -race -coverprofile=coverage.out ./... && \
 		go tool cover -html=coverage.out -o coverage.html && \
 		go tool cover -func=coverage.out | tail -n1 > coverage.txt"
 
