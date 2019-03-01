@@ -61,8 +61,8 @@ vet: build-docker
 
 .PHONY: vet-hard
 vet-hard: build-docker
-	@docker run -e GO111MODULE=off --rm aws-env \
-		gometalinter --vendor --deadline 1h ./...
+	@docker run --rm aws-env \
+		golangci-lint -v run --enable-all -D gochecknoglobals
 
 .PHONY: release
 release: 

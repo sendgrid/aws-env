@@ -1,13 +1,14 @@
-ARG GO_VERSION=latest
+ARG GO_VERSION=1.12
 
+# The build stage is used for building the aws-env binary and running tests.
 FROM golang:${GO_VERSION} AS build
 
-ARG GOMETALINTER_VERSION=3.0.0
+ARG GO_CI_VERSION=v1.15.0
 
-RUN url="https://github.com/alecthomas/gometalinter/releases/download/v${GOMETALINTER_VERSION}/gometalinter-${GOMETALINTER_VERSION}-linux-amd64.tar.gz" \
- && curl -sSL "$url" | tar -xzC /usr/local/bin --strip-components 1
+RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh \
+    | sh -s -- -b /usr/local/bin ${GO_CI_VERSION}
 
-WORKDIR /go/src/github.com/sendgrid/aws-env
+WORKDIR /code
 
 ENV GO111MODULE=on
 
@@ -19,11 +20,10 @@ COPY . .
 
 RUN make build
 
-RUN go mod vendor  # for gometalinter
-
-
+# The release (default) stage is a minimal production image suitable for use
+# as the base image to applications.
 FROM alpine AS release
 
-COPY --from=build /go/src/github.com/sendgrid/aws-env /usr/local/bin
+COPY --from=build /code/aws-env /usr/local/bin
 
 ENTRYPOINT ["aws-env"]
