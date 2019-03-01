@@ -73,7 +73,7 @@ $ export DB_USERNAME=$'some-secret-password'
 $ export PRIVATE_KEY=$'some-private-key'
 ```
 
-### Use as a Go library
+### Use as a Go library (with aws-sdk-go v1)
 
 If running a Go application with access to `AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`, and related environment variables (such as when
@@ -105,6 +105,9 @@ func init() {
   // optionally further process environment, e.g. via envconfig
 }
 ```
+
+aws-sdk-go-v2 can be used instead by importing the awsenv/v2 subpackage, and
+initializing and passing an aws-sdk-go-v2 SSM client.
 
 ### Example Dockerfile
 
