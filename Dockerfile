@@ -18,6 +18,11 @@ RUN go mod download
 
 COPY . .
 
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG VERSION=0.0.1
+ARG BUILD_NUMBER=0
+
 RUN make build
 
 # The release (default) stage is a minimal production image suitable for use
