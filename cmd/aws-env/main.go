@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/sendgrid/aws-env/awsenv"
+	v1 "github.com/sendgrid/aws-env/awsenv/v1"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -12,9 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/sendgrid/aws-env/awsenv"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 )
 
 var (
@@ -52,7 +55,7 @@ func initApp() *cli.App {
 			Name:        "prefix",
 			EnvVar:      "AWS_ENV_PREFIX",
 			Usage:       "prefix shared by values that should be replaced (value, NOT name)",
-			Value:       "awsenv:",
+			Value:       awsenv.DefaultPrefix,
 			Destination: &prefix,
 		},
 		cli.StringFlag{
@@ -130,40 +133,47 @@ func run(c *cli.Context) error {
 	sess := session.Must(session.NewSession(awsCfg))
 	ssmClient := ssm.New(sess)
 
-	r := awsenv.NewReplacer(prefix, ssmClient)
-	newVars, err := r.ReplaceAll()
-	if err != nil {
-		log.WithError(err).Error("failed to replace env vars")
-		os.Exit(1)
-	}
+	r := awsenv.NewReplacer(prefix, v1.NewParamsGetter(ssmClient))
 
 	if c.NArg() == 0 {
-		return dump(newVars)
+		return dump(r)
 	}
+
 	args := c.Args()
-	return invoke(newVars, args.First(), args.Tail())
+	return invoke(r, args.First(), args.Tail())
 }
 
-func dump(vars map[string]string) error {
+func dump(r *awsenv.Replacer) error {
+	ctx := context.Background()
+
+	vars, err := r.Replacements(ctx)
+	if err != nil {
+		return err
+	}
+
 	if len(vars) == 0 {
 		log.Info("nothing to replace")
 		return nil
 	}
+
 	for name, newVal := range vars {
 		log.WithField("envvar", name).Info("replacing")
 		fmt.Printf("export %s=$'%s'\n", name, newVal)
 	}
+
 	return nil
 }
 
-func invoke(vars map[string]string, prog string, args []string) error {
-	env := os.Environ()
-	for k, v := range vars {
-		log.WithField("envvar", k).Info("replacing")
-		env = append(env, k+"="+v)
+func invoke(r *awsenv.Replacer, prog string, args []string) error {
+	ctx := context.Background()
+
+	err := r.ReplaceAll(ctx)
+	if err != nil {
+		log.WithError(err).Error("failed to replace env vars")
+		return err
 	}
+
 	cmd := exec.Command(prog, args...) // nolint: gosec
-	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
