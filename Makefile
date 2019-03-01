@@ -10,7 +10,7 @@ BUILD_NUMBER = $(if $(BUILDKITE_BUILD_NUMBER),$(BUILDKITE_BUILD_NUMBER),0)
 
 GO_FILES = $(shell find . -type f -name "*.go")
 
-all: test vet vet-hard build
+all: test lint build
 
 .PHONY: build
 build: $(BINARIES)
@@ -54,13 +54,8 @@ else
 		comment -m "**Code coverage result**: $(shell cat coverage.txt)" $(BUILDKITE_PULL_REQUEST) -- $(BUILDKITE_ORGANIZATION_SLUG)/$(BUILDKITE_PIPELINE_SLUG)
 endif
 
-.PHONY: vet
-vet: build-docker
-	@docker run --rm aws-env \
-		go vet -v ./...
-
-.PHONY: vet-hard
-vet-hard: build-docker
+.PHONY: lint
+lint: build-docker
 	@docker run --rm aws-env \
 		golangci-lint -v run --enable-all -D gochecknoglobals
 
