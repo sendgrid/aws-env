@@ -41,7 +41,7 @@ steps:
   # Build, Test, Lint
   ##############################
   - label: 'Build Binary'
-    command: 'make build-docker'
+    command: 'make artifact'
     artifact_paths: 'aws-env'
 
   - label: 'Unit Tests & Code Coverage'
