@@ -42,6 +42,7 @@ steps:
   ##############################
   - label: 'Build Binary'
     command: 
+      - 'make build'
       - 'make build-docker'
       - 'buildkite-agent artifact upload aws-env'
 
