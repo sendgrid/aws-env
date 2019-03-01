@@ -25,6 +25,10 @@ $(BINARIES): $(GO_FILES)
 build-docker:
 	@docker build -t aws-env --target build .
 
+.PHONY: artifact
+artifact: build-docker
+	docker run -v $(WD):/dist --rm aws-env cp /code/aws-env /dist/
+
 .PHONY: clean
 clean: 
 	@rm -rf $(BINARIES) .image coverage.* 
