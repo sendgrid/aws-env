@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+export GO111MODULE=on
 make build
 
 aws --region us-east-1 ssm put-parameter --name /some/test/key --value "my-secret-value" --type SecureString --key-id "alias/aws/ssm" --overwrite
