@@ -38,7 +38,7 @@ steps:
   - wait
 
   ##############################
-  # Build, Test, Vet
+  # Build, Test, Lint
   ##############################
   - label: 'Build Binary'
     command: 
@@ -49,11 +49,8 @@ steps:
     command: 'make test && make report'
     artifact_paths: 'coverage.html'
 
-  - label: 'Vet'
-    command: 'make vet'
-
-  - label: 'Vet (Hard)'
-    command: 'make vet-hard'
+  - label: 'Lint'
+    command: 'make lint'
 
   - wait
 
