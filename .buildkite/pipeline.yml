@@ -20,10 +20,10 @@ steps:
     command: 'workflow status_checks'
     branches: '!master'
 
-  # The purpose of this script is to determine what version you are attempting to bump to.
-  # This script will then write out that version into a file named 'version_wf', which
-  # will be used by the build system to create pull requests, and your app itself may
-  # use the file as well.
+  # The purpose of this script is to determine what version you are
+  # attempting to bump to.  This script will then write out that version
+  # into a file named 'version_wf', which will be used by the build system
+  # to create pull requests, and your app itself may use the file as well.
   - label: 'prebuild_determine_version'
     env:
       # Use automatic versioning.
@@ -41,11 +41,10 @@ steps:
   # Build, Test, Lint
   ##############################
   - label: 'Build Binary'
-    command: 
-      - 'make build-docker'
-      - 'buildkite-agent artifact upload aws-env'
+    command: 'make artifact'
+    artifact_paths: 'aws-env'
 
-  - label: 'Unit Tests & Code Coverage' 
+  - label: 'Unit Tests & Code Coverage'
     command: 'make test && make report'
     artifact_paths: 'coverage.html'
 
@@ -60,7 +59,7 @@ steps:
 
   # On master builds, push the versioned image
   - label: 'Release :shipit:'
-    command: 
+    command:
       - 'mkdir build'
       - 'buildkite-agent artifact download aws-env build/'
       - 'make release'
@@ -72,9 +71,9 @@ steps:
   # Post-Publish
   ##############################
 
-  # This script will use the previously written version_wf file to update the version
-  # inside of github, as well as create release notes with a link back to the
-  # merged pull request.
+  # This script will use the previously written version_wf file to update
+  # the version inside of github, as well as create release notes with a
+  # link back to the merged pull request.
   #- label: 'postbuild_tagrepo_update_releasenotes'
   #  env:
   #    # Use automatic versioning.

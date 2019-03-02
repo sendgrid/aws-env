@@ -3,10 +3,10 @@ WD ?= $(shell pwd)
 NAMESPACE=sendgrid
 APPNAME=aws-env
 
-GIT_COMMIT = $(shell git rev-parse --verify HEAD)
-BUILD_DATE = $(shell date -u)
-VERSION = $(if $(shell cat version_wf),$(shell cat version_wf),0.0.1)
-BUILD_NUMBER = $(if $(BUILDKITE_BUILD_NUMBER),$(BUILDKITE_BUILD_NUMBER),0)
+export GIT_COMMIT ?= $(shell git rev-parse --verify HEAD)
+export BUILD_DATE ?= $(shell date -u)
+export VERSION ?= $(or $(shell cat version_wf),0.0.1)
+export BUILD_NUMBER ?= $(or $(BUILDKITE_BUILD_NUMBER),0)
 
 GO_FILES = $(shell find . -type f -name "*.go")
 
@@ -23,7 +23,16 @@ $(BINARIES): $(GO_FILES)
 
 .PHONY: build-docker
 build-docker:
-	@docker build -t aws-env --target build .
+	@docker build -t aws-env \
+		--build-arg GIT_COMMIT \
+		--build-arg BUILD_DATE \
+		--build-arg VERSION \
+		--build-arg BUILD_NUMBER \
+		--target build .
+
+.PHONY: artifact
+artifact: build-docker
+	@docker run -v $(WD):/dist --rm aws-env cp /code/aws-env /dist/
 
 .PHONY: clean
 clean: 
