@@ -32,7 +32,7 @@ $ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-
 2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)). 
 
 ```
-$ wget https://github.com/sendgrid/aws-env/releases/download/1.0.0/aws-env -O aws-env
+$ wget https://github.com/sendgrid/aws-env/releases/download/v1.2.1/aws-env -O aws-env
 ```
 
 OR build from source
@@ -129,6 +129,9 @@ RUN wget https://github.com/sendgrid/aws-env/releases/download/1.0.0/aws-env -O 
 
 CMD aws-env --region us-east-2 /my-app
 ```
+
+### Use as a Docker image
+Starting with version `v1.2.1`, we publish a Docker image that contains the `aws-env` binary.
 
 ## Auth
 aws-env exposes a `--profile` flag (or `AWS_ENV_PROFILE`) for use when

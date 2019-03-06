@@ -29,6 +29,21 @@ build-docker:
 		--build-arg VERSION \
 		--build-arg BUILD_NUMBER \
 		--target build .
+	@docker tag aws-env docker.sendgrid.net/sendgrid/aws-env
+
+.PHONY: push
+push: 
+	docker push docker.sendgrid.net/$(NAMESPACE)/$(APPNAME)
+
+.PHONY: push-tagged
+push-tagged:
+	docker tag docker.sendgrid.net/$(NAMESPACE)/$(APPNAME) docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VERSION)
+	docker push docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VERSION) 
+
+.PHONY: push-pre-tagged
+push-pre-tagged:
+	docker tag docker.sendgrid.net/$(NAMESPACE)/$(APPNAME) docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):v0.0.0-alpha-${BUILD_NUMBER}
+	docker push docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):v0.0.0-alpha-${BUILD_NUMBER}
 
 .PHONY: artifact
 artifact: build-docker
