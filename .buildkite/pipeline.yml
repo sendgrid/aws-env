@@ -53,6 +53,23 @@ steps:
 
   - wait
 
+
+  ##############################
+  # Push Docker Image
+  ##############################
+
+  # On non-master builds, push latest and a pre-tagged version
+  - label: 'Build, Tag, & Push Pre-Image'
+    command: 'make build-docker && make push && make push-pre-tagged'
+    branches: '!master'
+
+  # On master builds, push the versioned image
+  - label: 'Build, Tag, & Push Image'
+    command: 'make build-docker && make push && make push-tagged'
+    branches: 'master'
+
+  - wait
+
   ##############################
   # Package and Publish
   ##############################
