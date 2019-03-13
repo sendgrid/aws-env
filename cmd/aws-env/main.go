@@ -31,13 +31,17 @@ var (
 	region     string
 	profile    string
 	assumeRole string
+	fileName   string
 )
 
 const description = `
 aws-env behaves similarly to the posix env command: if passed a command (with
 optional arguments), that command will be invoked with additional environment
 variables set from parameter store. If no command is passed, aws-env will
-output export statements suitable for use with eval or source shell builtins.`
+output export statements suitable for use with eval or source shell builtins.
+It does support a -f flag to do an in place replacement of the first occurrence
+per line of each prefixed item, delimited by whitespace (or \" then whitespace)
+`
 
 func initApp() *cli.App {
 	newApp := cli.NewApp()
@@ -45,6 +49,8 @@ func initApp() *cli.App {
 	newApp.Version = version
 	newApp.Authors = []cli.Author{
 		{Name: "Michael Robinson", Email: "michael.robinson@sendgrid.com"},
+		{Name: "Steven Bogacz", Email: "steven.bogacz@sendgrid.com"},
+		{Name: "Kevin Gillette", Email: "kevin.gillette@sendgrid.com"},
 	}
 	newApp.Usage = "set environment variables with values from parameter store"
 	newApp.ArgsUsage = "[program [arguments...]]"
@@ -76,6 +82,11 @@ func initApp() *cli.App {
 			EnvVar:      "AWS_ENV_ASSUME_ROLE",
 			Usage:       "aws role to assume after initial creds",
 			Destination: &assumeRole,
+		},
+		cli.StringFlag{
+			Name:        "file, f",
+			Usage:       "file to be updated by aws-env with Parameter Store values",
+			Destination: &fileName,
 		},
 	}
 
@@ -133,6 +144,13 @@ func run(c *cli.Context) error {
 	sess := session.Must(session.NewSession(awsCfg))
 	ssmClient := ssm.New(sess)
 
+	if fileName != "" {
+		return fileReplacement(ssmClient)
+	}
+	return envReplacement(c, ssmClient)
+}
+
+func envReplacement(c *cli.Context, ssmClient *ssm.SSM) error {
 	r := awsenv.NewReplacer(prefix, v1.NewParamsGetter(ssmClient))
 
 	if c.NArg() == 0 {
@@ -141,6 +159,13 @@ func run(c *cli.Context) error {
 
 	args := c.Args()
 	return invoke(r, args.First(), args.Tail())
+}
+
+func fileReplacement(ssmClient *ssm.SSM) error {
+	r := awsenv.NewFileReplacer(prefix, fileName, v1.NewParamsGetter(ssmClient))
+
+	ctx := context.Background()
+	return r.ReplaceAll(ctx)
 }
 
 func dump(r *awsenv.Replacer) error {
