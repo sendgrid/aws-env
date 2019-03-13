@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode"
 )
 
 // FileReplacer handles replacing the first instance per line of a prefixed
@@ -69,7 +70,7 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 			continue
 		}
 
-		path := strings.TrimSuffix(strings.Fields(line[idx+len(r.prefix):])[0], "\"")
+		path := strings.FieldsFunc(line[idx+len(r.prefix):], splitPath)[0]
 		replacementIndices[path] = replacementIndex{
 			lineNumber: i,
 			index:      idx,
@@ -109,4 +110,10 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 type replacementIndex struct {
 	lineNumber int
 	index      int
+}
+
+// return false if the given rune isn't an acceptable Parameter Store path
+func splitPath(r rune) bool {
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
+		r != '/' && r != '_' && r != '-' && r != '.'
 }

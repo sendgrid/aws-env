@@ -39,6 +39,19 @@ mysql_users:
 	}
  )
 `
+	sampleCnfFile3 = `
+mysql_users:
+ (
+	{
+		username = "awsenv:/path/to/the/username",
+		password = "awsenv:/path/to/the/password",
+		default_hostgroup = 0,
+		max_connections=1000,
+		default_schema="information_schema",
+		active = 1,
+	}
+ )
+`
 )
 
 func TestFileReplacer_panic(t *testing.T) {
@@ -97,6 +110,45 @@ mysql_users:
 		max_connections=1000
 		default_schema="information_schema"
 		active = 1
+	}
+ )
+`
+	f, err := ioutil.ReadFile(fileName)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedContent, string(f))
+}
+
+func TestFileReplacer_ReplaceAll_with_commas(t *testing.T) {
+
+	fileName, cleanup := writeTempFile(sampleCnfFile3)
+	defer cleanup()
+
+	// read content before the change
+	oldContent, err := ioutil.ReadFile(fileName)
+	require.NoError(t, err)
+	require.Equal(t, sampleCnfFile3, string(oldContent))
+
+	params := mockParamStore{
+		"/path/to/the/username": "user",
+		"/path/to/the/password": "password",
+	}
+	r := NewFileReplacer(DefaultPrefix, fileName, params)
+
+	ctx := context.Background()
+	err = r.ReplaceAll(ctx)
+	require.NoError(t, err, "expected no error")
+
+	expectedContent := `
+mysql_users:
+ (
+	{
+		username = "user",
+		password = "password",
+		default_hostgroup = 0,
+		max_connections=1000,
+		default_schema="information_schema",
+		active = 1,
 	}
  )
 `
