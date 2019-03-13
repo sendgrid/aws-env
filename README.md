@@ -116,6 +116,52 @@ func init() {
 aws-sdk-go-v2 can be used instead by importing the awsenv/v2 subpackage, and
 initializing and passing an aws-sdk-go-v2 SSM client.
 
+### Use to update a file in-place
+
+The `-f` flag can be used to pass in a file to update in-place rather than 
+operating on the environment variables. It will only update the first 
+occurrence per line. It stops parsing when a character is no longer a valid
+Parameter Store path. 
+
+Example usage
+```
+$ mrroboto upload -p /path/to/the/username -v localtestuser               
+2019/03/13 14:15:04 parameter=/path/to/the/username regions=[us-east-1 us-east-2 us-west-1 us-west-2]
+
+$ mrroboto upload -p /path/to/the/password -v localtestpass            
+2019/03/13 14:15:14 parameter=/path/to/the/password regions=[us-east-1 us-east-2 us-west-1 us-west-2]
+
+$ cat test.txt4                                                           
+mysql_users:
+ (
+    {
+        username = "awsenv:/path/to/the/username"
+        password = "awsenv:/path/to/the/password"
+        default_hostgroup = 0
+        max_connections=1000
+        default_schema="information_schema"
+        active = 1
+    }
+ )
+
+$ ./aws-env -f test.txt4                                                  
+INFO[0000] aws-env starting                              app_version=0.0.1 built_at="Wed Mar 13 20:12:42 UTC 2019" git_hash=545515b6b6646f1bd2f95dea13478066782deb0c
+
+
+$ cat test.txt4                                                          
+mysql_users:
+ (
+    {
+        username = "localtestuser"
+        password = "localtestpass"
+        default_hostgroup = 0
+        max_connections=1000
+        default_schema="information_schema"
+        active = 1
+    }
+ )
+```
+
 ### Example Dockerfile
 
 ```
