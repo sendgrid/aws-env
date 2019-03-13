@@ -33,7 +33,7 @@ func NewFileReplacer(prefix, fileName string, ssm ParamsGetter) *FileReplacer {
 
 	fInfo, err := os.Stat(fileName)
 	if err != nil {
-		panic(fmt.Sprintf("failed to state the file %s", fileName))
+		panic(fmt.Sprintf("failed to stat the file %s", fileName))
 	}
 
 	perms := fInfo.Mode().Perm()
@@ -69,7 +69,7 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 			continue
 		}
 
-		path := strings.Fields(line[idx+len(r.prefix):])[0]
+		path := strings.TrimSuffix(strings.Fields(line[idx+len(r.prefix):])[0], "\"")
 		replacementIndices[path] = replacementIndex{
 			lineNumber: i,
 			index:      idx,

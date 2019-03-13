@@ -3,6 +3,7 @@ package awsenv
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -99,6 +100,7 @@ type mockParamStore map[string]string
 func (m mockParamStore) GetParams(ctx context.Context, paths []string) (map[string]string, error) {
 	result := make(map[string]string, len(paths))
 	for _, path := range paths {
+		fmt.Printf("looking for path %s", path)
 		val, ok := m[path]
 		if !ok {
 			return nil, errors.New("not found")

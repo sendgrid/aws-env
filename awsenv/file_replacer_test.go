@@ -17,8 +17,21 @@ var (
 mysql_users:
  (
  	{
- 		username = "/path/to/the/username"
- 		password = "/path/to/the/password"
+ 		username = "username"
+ 		password = "password"
+ 		default_hostgroup = 0
+ 		max_connections=1000
+ 		default_schema="information_schema"
+ 		active = 1
+ 	}
+ )
+`
+	sampleCnfFile2 = `
+mysql_users:
+ (
+ 	{
+		username = "awsenv:/path/to/the/username"
+		password = "awsenv:/path/to/the/password"
  		default_hostgroup = 0
  		max_connections=1000
  		default_schema="information_schema"
@@ -41,30 +54,32 @@ func TestFileReplacer_ReplaceAll_noop(t *testing.T) {
 		return nil, errors.New("forced")
 	})
 
-	env := fakeEnv{}
-	env.install()
+	fileName, cleanup := writeTempFile(sampleCnfFile1)
+	defer cleanup()
 
 	ctx := context.Background()
-	r := NewFileReplacer("awsenv:", "", mockGetter)
+	r := NewFileReplacer("awsenv:", fileName, mockGetter)
 	err := r.ReplaceAll(ctx)
+
+	// since the error is forced, the only way for there to be no error is
+	// if it didn't try to do any lookups
 	require.NoError(t, err, "expected no error")
-	require.Empty(t, env)
+	require.Equal(t, sampleCnfFile1, sampleCnfFile1)
 }
 
 func TestFileReplacer_ReplaceAll_multiple(t *testing.T) {
 
-	fileName, cleanup := writeTempFile(sampleCnfFile1)
+	fileName, cleanup := writeTempFile(sampleCnfFile2)
 	defer cleanup()
 
 	params := mockParamStore{
-		"/param/to/the/username": "user",
-		"/param/to/the/password": "password",
+		"/path/to/the/username": "user",
+		"/path/to/the/password": "password",
 	}
 	r := NewFileReplacer(DefaultPrefix, fileName, params)
 
 	ctx := context.Background()
 	err := r.ReplaceAll(ctx)
-
 	require.NoError(t, err, "expected no error")
 
 	expectedContent := `
@@ -80,7 +95,10 @@ mysql_users:
  	}
  )
 `
-	require.Equal(t, expectedContent, "")
+	f, err := ioutil.ReadFile(fileName)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedContent, string(f))
 }
 
 func writeTempFile(contents string) (string, func()) {
@@ -96,13 +114,12 @@ func writeTempFile(contents string) (string, func()) {
 		log.Fatal(err)
 	}
 
-	defer os.Remove(tmpfile.Name()) // clean up
-
 	if _, err := tmpfile.Write([]byte(contents)); err != nil {
 		log.Fatal(err)
 	}
 	if err := tmpfile.Close(); err != nil {
 		log.Fatal(err)
 	}
-	return fName, func() { os.Remove(fName) }
+
+	return tmpfile.Name(), func() { os.Remove(fName) }
 }
