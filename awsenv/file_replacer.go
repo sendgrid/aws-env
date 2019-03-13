@@ -58,7 +58,7 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 	}
 
 	lines := strings.Split(string(f), "\n")
-	replacementIndices := make(map[string]replacementIndex, 8)
+	replacementIndices := make(map[string][]replacementIndex, 8)
 	paths := make([]string, 0, 8)
 
 	// find the paths that need replacing
@@ -66,15 +66,21 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 
 		idx := strings.Index(line, r.prefix)
 		if idx < 0 {
-			// impossible on real systems?
+			// no prefix found in line
 			continue
 		}
 
 		path := strings.FieldsFunc(line[idx+len(r.prefix):], splitPath)[0]
-		replacementIndices[path] = replacementIndex{
+
+		// if we haven't seen the path yet, init the slice
+		if _, ok := replacementIndices[path]; !ok {
+			replacementIndices[path] = make([]replacementIndex, 0, 4)
+		}
+
+		replacementIndices[path] = append(replacementIndices[path], replacementIndex{
 			lineNumber: i,
 			index:      idx,
-		}
+		})
 		paths = append(paths, path)
 	}
 
@@ -86,16 +92,19 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 
 	// for each param we found, replace the corresponding line
 	for path, value := range paramValues {
-		replacement, ok := replacementIndices[path]
+		replacements, ok := replacementIndices[path]
 
 		// this shouldn't really happen
 		if !ok {
 			continue
 		}
 
-		ln := replacement.lineNumber
-		idx := replacement.index
-		lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(r.prefix)+len(path):])
+		for _, replacement := range replacements {
+
+			ln := replacement.lineNumber
+			idx := replacement.index
+			lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(r.prefix)+len(path):])
+		}
 	}
 
 	newContent := strings.Join(lines, "\n")
