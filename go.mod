@@ -3,6 +3,7 @@ module github.com/sendgrid/aws-env
 require (
 	github.com/aws/aws-sdk-go v1.14.30
 	github.com/aws/aws-sdk-go-v2 v0.6.0
+	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/pkg/errors v0.8.0
 	github.com/sirupsen/logrus v1.0.5
 	github.com/stretchr/testify v1.2.2

@@ -80,7 +80,7 @@ func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) 
 	pathvars := pathmap(r.prefix, environ())
 
 	// param path -> env value
-	pathvals, err := r.fetch(ctx, keys(pathvars))
+	pathvals, err := fetch(ctx, r.ssm, keys(pathvars))
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +92,12 @@ func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) 
 	return dest, nil
 }
 
-func (r *Replacer) fetch(ctx context.Context, paths []string) (map[string]string, error) {
+func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]string, error) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	var limit int
 
-	lpg, ok := r.ssm.(LimitedParamsGetter)
+	lpg, ok := ssm.(LimitedParamsGetter)
 	if ok {
 		limit = lpg.GetParamsLimit()
 	}
@@ -113,7 +113,7 @@ func (r *Replacer) fetch(ctx context.Context, paths []string) (map[string]string
 
 		eg.Go(func() error {
 			var err error
-			results[i], err = r.ssm.GetParams(ctx, batch)
+			results[i], err = ssm.GetParams(ctx, batch)
 			return err
 		})
 	}
