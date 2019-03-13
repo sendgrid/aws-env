@@ -94,7 +94,8 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 
 		ln := replacement.lineNumber
 		idx := replacement.index
-		lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(path):])
+		fmt.Printf("path %s, len %d\n", path, len(path))
+		lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(r.prefix)+len(path):])
 	}
 
 	newContent := strings.Join(lines, "\n")
