@@ -1,3 +1,4 @@
+GO_VERSION ?= 1.12.1
 BINARIES = aws-env
 WD ?= $(shell pwd)
 NAMESPACE=sendgrid
@@ -28,7 +29,7 @@ build-docker:
 		--build-arg BUILD_DATE \
 		--build-arg VERSION \
 		--build-arg BUILD_NUMBER \
-		--target build .
+		.
 	@docker tag aws-env docker.sendgrid.net/sendgrid/aws-env
 
 .PHONY: push
@@ -47,7 +48,7 @@ push-pre-tagged:
 
 .PHONY: artifact
 artifact: build-docker
-	@docker run -v $(WD):/dist --rm aws-env cp /code/aws-env /dist/
+	@docker run -v $(WD):/dist --rm aws-env cp /usr/local/bin/aws-env /dist/
 
 .PHONY: clean
 clean: 
@@ -55,10 +56,11 @@ clean:
 
 .PHONY: test
 test: coverage.txt
-coverage.txt: build-docker $(GO_FILES)
+coverage.txt: $(GO_FILES)
 	@docker run --rm \
 		-v $(WD):/code \
-		aws-env \
+		-w /code \
+		golang:$(GO_VERSION) \
 		sh -c "\
 		go test -mod readonly -v -race -coverprofile=coverage.out ./... && \
 		go tool cover -html=coverage.out -o coverage.html && \
@@ -79,9 +81,14 @@ else
 endif
 
 .PHONY: lint
-lint: build-docker
-	@docker run --rm aws-env \
-		golangci-lint -v run --enable-all -D gochecknoglobals
+lint:
+	@docker run --rm \
+		-v $(WD):/code \
+		-w /code \
+		golang:$(GO_VERSION) \
+		sh -c "\
+		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b /go/bin v1.16.0 && \
+		golangci-lint -v run --enable-all -D gochecknoglobals"
 
 .PHONY: release
 release: 
