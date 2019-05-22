@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -32,6 +33,7 @@ var (
 	profile    string
 	assumeRole string
 	fileName   string
+	ecs        bool
 )
 
 const description = `
@@ -88,6 +90,12 @@ func initApp() *cli.App {
 			Usage:       "file to be updated by aws-env with Parameter Store values",
 			Destination: &fileName,
 		},
+		cli.BoolFlag{
+			Name:        "ecs",
+			EnvVar:      "AWS_ENV_ECS",
+			Usage:       "Enable ECS mode, using the default credential provider to support ECS",
+			Destination: &ecs,
+		},
 	}
 
 	return newApp
@@ -112,6 +120,10 @@ func run(c *cli.Context) error {
 	// Unless profile is specified, then that wins priority
 	if profile != "" {
 		creds = credentials.NewSharedCredentials("", profile)
+	}
+	// Unless ECS is specified, then use the default credentials
+	if ecs {
+		creds = defaults.Get().Config.Credentials
 	}
 
 	// If assumeRole is specified, then call sts and get further assume creds
