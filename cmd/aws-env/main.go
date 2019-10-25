@@ -219,6 +219,6 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 
 func main() {
 	if err := app.Run(os.Args); err != nil {
-		log.WithError(err).Errorf("%s failed to start", app.Name)
+		log.WithError(err).Fatalf("%s failed to start", app.Name)
 	}
 }
