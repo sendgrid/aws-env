@@ -49,11 +49,6 @@ func initApp() *cli.App {
 	newApp := cli.NewApp()
 	newApp.Name = "aws-env"
 	newApp.Version = version
-	newApp.Authors = []cli.Author{
-		{Name: "Michael Robinson", Email: "michael.robinson@sendgrid.com"},
-		{Name: "Steven Bogacz", Email: "steven.bogacz@sendgrid.com"},
-		{Name: "Kevin Gillette", Email: "kevin.gillette@sendgrid.com"},
-	}
 	newApp.Usage = "set environment variables with values from parameter store"
 	newApp.ArgsUsage = "[program [arguments...]]"
 	newApp.Description = description
@@ -97,6 +92,11 @@ func initApp() *cli.App {
 			Destination: &ecs,
 		},
 	}
+	newApp.Commands = append(newApp.Commands, cli.Command{
+		Name:   "licenses",
+		Usage:  "print licenses of libraries used",
+		Action: licenseCommand,
+	})
 
 	return newApp
 }
