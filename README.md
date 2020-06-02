@@ -32,7 +32,7 @@ $ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-
 2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)). 
 
 ```
-$ wget https://github.com/sendgrid/aws-env/releases/download/v1.2.1/aws-env -O aws-env
+$ wget https://github.com/sendgrid/aws-env/releases/download/1.3.3/aws-env -O aws-env
 ```
 
 OR build from source
