@@ -35,10 +35,10 @@ $ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-
 $ wget https://github.com/sendgrid/aws-env/releases/download/1.3.3/aws-env -O aws-env
 ```
 
-OR build from source
+OR build from source in `$GOPATH/src`
 
 ```
-$ go install github.com/sendgrid/aws-env/cmd/aws-env
+$ go get github.com/sendgrid/aws-env/cmd/aws-env
 ```
 
 3. Start your application with aws-env
