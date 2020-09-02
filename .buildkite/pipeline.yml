@@ -97,4 +97,4 @@ steps:
        -v $$PWD:/src/github.com/sendgrid/aws-env \
        -w /src/github.com/sendgrid/aws-env \
        -e GITHUB_TOKEN=$$WF_GITHUB_TOKEN \
-       goreleaser/goreleaser release
+       goreleaser/goreleaser:v0.142.0 release
