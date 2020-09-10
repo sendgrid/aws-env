@@ -101,7 +101,7 @@ func TestFileReplacer_ReplaceAll_multiple(t *testing.T) {
 	defer cleanup()
 
 	// read content before the change
-	oldContent, err := ioutil.ReadFile(fileName)
+	oldContent, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 	require.Equal(t, sampleCnfFile2, string(oldContent))
 
@@ -128,7 +128,7 @@ mysql_users:
 	}
  )
 `
-	f, err := ioutil.ReadFile(fileName)
+	f, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 
 	require.Equal(t, expectedContent, string(f))
@@ -140,7 +140,7 @@ func TestFileReplacer_ReplaceAll_with_commas(t *testing.T) {
 	defer cleanup()
 
 	// read content before the change
-	oldContent, err := ioutil.ReadFile(fileName)
+	oldContent, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 	require.Equal(t, sampleCnfFile3, string(oldContent))
 
@@ -167,7 +167,7 @@ mysql_users:
 	}
  )
 `
-	f, err := ioutil.ReadFile(fileName)
+	f, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 
 	require.Equal(t, expectedContent, string(f))
@@ -179,7 +179,7 @@ func TestFileReplacer_ReplaceAll_with_multiple_occurrences(t *testing.T) {
 	defer cleanup()
 
 	// read content before the change
-	oldContent, err := ioutil.ReadFile(fileName)
+	oldContent, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 	require.Equal(t, sampleCnfFile4, string(oldContent))
 
@@ -208,7 +208,7 @@ mysql_users:
 	}
  )
 `
-	f, err := ioutil.ReadFile(fileName)
+	f, err := ioutil.ReadFile(fileName) //nolint: gosec
 	require.NoError(t, err)
 
 	require.Equal(t, expectedContent, string(f))
@@ -234,5 +234,5 @@ func writeTempFile(contents string) (string, func()) {
 		log.Fatal(err)
 	}
 
-	return tmpfile.Name(), func() { os.Remove(fName) }
+	return tmpfile.Name(), func() { os.Remove(fName) } //nolint: errcheck,gosec
 }

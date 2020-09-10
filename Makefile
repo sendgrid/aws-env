@@ -1,4 +1,5 @@
-GO_VERSION ?= 1.12.1
+GO_VERSION ?= 1.15
+GO_CI_VERSION = v1.31.0
 BINARIES = aws-env
 WD ?= $(shell pwd)
 NAMESPACE=sendgrid
@@ -87,8 +88,16 @@ lint:
 		-w /code \
 		golang:$(GO_VERSION) \
 		sh -c "\
-		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b /go/bin v1.16.0 && \
-		golangci-lint -v run --enable-all -D gochecknoglobals"
+		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b /go/bin $(GO_CI_VERSION) && \
+		golangci-lint -v run --exclude-use-default=false --deadline 5m \
+			-E golint \
+			-E gosec \
+			-E unconvert \
+			-E unparam \
+			-E gocyclo \
+			-E misspell \
+			-E gocritic \
+			-E maligned"
 
 .PHONY: release
 release: 
