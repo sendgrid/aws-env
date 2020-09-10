@@ -32,7 +32,7 @@ $ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-
 2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)). 
 
 ```
-$ wget https://github.com/sendgrid/aws-env/releases/download/1.3.3/aws-env -O aws-env
+$ wget https://github.com/sendgrid/aws-env/releases/download/1.4.0/aws-env -O aws-env
 ```
 
 OR build from source in `$GOPATH/src`
@@ -170,10 +170,15 @@ FROM alpine
 RUN apk update && apk upgrade && \
   apk add --no-cache openssl ca-certificates
 
-RUN wget https://github.com/sendgrid/aws-env/releases/download/1.0.0/aws-env -O /bin/aws-env && \
+RUN wget https://github.com/sendgrid/aws-env/releases/download/1.4.0/aws-env -O /bin/aws-env && \
   chmod +x /bin/aws-env
 
 CMD aws-env --region us-east-2 /my-app
+```
+
+Alternatively you can directly copy the binary from the existing Docker image (internal SendGrid use only):
+```
+COPY --from=docker.sendgrid.net/sendgrid/aws-env:1.4.0 /usr/local/bin/aws-env /usr/bin/aws-env
 ```
 
 ### Use as a Docker image
