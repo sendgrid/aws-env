@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"syscall"
 
 	"github.com/sendgrid/aws-env/awsenv"
 	v1 "github.com/sendgrid/aws-env/awsenv/v1"
@@ -240,6 +241,11 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 		case sig := <-sigCh:
 			// this errror case only seems possible if the OS has released the process
 			// or if it isn't started. So we _should_ be able to break
+			// However, we might receive a "child exited" signal right before we get a
+			// message on the err chan, so just continue in that case
+			if sig == syscall.SIGCHLD {
+				continue
+			}
 			if err := cmd.Process.Signal(sig); err != nil {
 				log.WithError(err).WithField("signal", sig).Error("error sending signal")
 				return err
