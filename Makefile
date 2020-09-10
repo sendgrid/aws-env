@@ -1,5 +1,5 @@
 GO_VERSION ?= 1.12.1
-BINARIES = aws-env signal-test
+BINARIES = aws-env
 WD ?= $(shell pwd)
 NAMESPACE=sendgrid
 APPNAME=aws-env

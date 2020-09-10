@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 
 	"github.com/sendgrid/aws-env/awsenv"
 	v1 "github.com/sendgrid/aws-env/awsenv/v1"
@@ -88,7 +89,7 @@ func initApp() *cli.App {
 		cli.BoolFlag{
 			Name:        "ecs",
 			EnvVar:      "AWS_ENV_ECS",
-			Usage:       "Enable ECS mode, using the default credential provider to support ECS",
+			Usage:       "enable ECS mode, using the default credential provider to support ECS",
 			Destination: &ecs,
 		},
 	}
@@ -159,6 +160,7 @@ func run(c *cli.Context) error {
 	if fileName != "" {
 		return fileReplacement(ssmClient)
 	}
+
 	return envReplacement(c, ssmClient)
 }
 
@@ -214,7 +216,43 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+
+	// in order to make sure that we catch and propagate signals correctly, we need
+	// to decouple starting the command and waiting for it to complete, so we can
+	// send signals as it runs
+	err = cmd.Start()
+	if err != nil {
+		log.WithError(err).Error("failed to start child process")
+		return err
+	}
+
+	// wait for the command to finish
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.Wait()
+		close(errCh)
+	}()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh)
+
+	for {
+		select {
+		case sig := <-sigCh:
+			// this errror case only seems possible if the OS has released the process
+			// or if it isn't started. So we _should_ be able to break
+			if err := cmd.Process.Signal(sig); err != nil {
+				log.WithError(err).WithField("signal", sig).Error("error sending signal")
+				return err
+			}
+		case err := <-errCh:
+			// the command finished.
+			if err != nil {
+				log.WithError(err).Error("command failed")
+				return err
+			}
+			return nil
+		}
+	}
 }
 
 func main() {
