@@ -234,18 +234,13 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 		close(errCh)
 	}()
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGABRT, syscall.SIGTERM)
 
 	for {
 		select {
 		case sig := <-sigCh:
 			// this errror case only seems possible if the OS has released the process
 			// or if it isn't started. So we _should_ be able to break
-			// However, we might receive a "child exited" signal right before we get a
-			// message on the err chan, so just continue in that case
-			if sig == syscall.SIGCHLD {
-				continue
-			}
 			if err := cmd.Process.Signal(sig); err != nil {
 				log.WithError(err).WithField("signal", sig).Error("error sending signal")
 				return err
