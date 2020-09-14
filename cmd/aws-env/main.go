@@ -234,7 +234,7 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 		close(errCh)
 	}()
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGABRT, syscall.SIGTERM)
 
 	for {
 		select {
