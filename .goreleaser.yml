@@ -1,0 +1,81 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod download
+    # you may remove this if you don't need go generate
+    - go generate ./...
+builds:
+  - main: ./cmd/aws-env
+    binary: aws-env
+    env:
+    - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+
+brews:
+  -
+    name: aws-env
+
+    tap:
+      owner: sendgrid
+      name: homebrew-tap
+
+    # Allows you to set a custom download strategy.
+    # Default is empty.
+    download_strategy: GitHubPrivateRepositoryReleaseDownloadStrategy
+
+    # Allows you to add a custom require_relative at the top of the formula template
+    # Default is empty
+    custom_require: "../lib/custom_download_strategy"
+
+    # Git author used to commit to the repository.
+    # Defaults are shown.
+    commit_author:
+      name: goreleaserbot
+      email: team-autobots@sendgrid.com
+
+    # Folder inside the repository to put the formula.
+    # Default is the root folder.
+    folder: Formula
+
+    # Caveats for the user of your binary.
+    # Default is empty.
+    caveats: "Must be run through aws-okta"
+
+    # Your app's homepage.
+    # Default is empty.
+    homepage: "https://github.com/sendgrid/aws-env"
+
+    # Your app's description.
+    # Default is empty.
+    description: "A small utility to help populate environment variables using secrets stored in AWS Parameter Store"
+
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # formula - instead, the formula file will be stored on the dist folder only,
+    # leaving the responsibility of publishing it to the user.
+    # If set to auto, the release will not be uploaded to the homebrew tap
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    # Default is false.
+    skip_upload: false
+
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
