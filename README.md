@@ -29,7 +29,7 @@ $ aws ssm put-parameter --name /testing/my-app/dbpass --value "some-secret-passw
 $ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-key" --type SecureString --key-id "alias/aws/ssm" --region us-east-1
 ```
 
-2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)). 
+2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)).
 
 ```
 $ wget https://github.com/sendgrid/aws-env/releases/download/1.4.0/aws-env -O aws-env
@@ -118,20 +118,20 @@ initializing and passing an aws-sdk-go-v2 SSM client.
 
 ### Use to update a file in-place
 
-The `-f` flag can be used to pass in a file to update in-place rather than 
-operating on the environment variables. It will only update the first 
+The `-f` flag can be used to pass in a file to update in-place rather than
+operating on the environment variables. It will only update the first
 occurrence per line. It stops parsing when a character is no longer a valid
-Parameter Store path. 
+Parameter Store path.
 
 Example usage
 ```
-$ mrroboto upload -p /path/to/the/username -v localtestuser               
+$ mrroboto upload -p /path/to/the/username -v localtestuser
 2019/03/13 14:15:04 parameter=/path/to/the/username regions=[us-east-1 us-east-2 us-west-1 us-west-2]
 
-$ mrroboto upload -p /path/to/the/password -v localtestpass            
+$ mrroboto upload -p /path/to/the/password -v localtestpass
 2019/03/13 14:15:14 parameter=/path/to/the/password regions=[us-east-1 us-east-2 us-west-1 us-west-2]
 
-$ cat test.txt4                                                           
+$ cat test.txt4
 mysql_users:
  (
     {
@@ -144,11 +144,11 @@ mysql_users:
     }
  )
 
-$ ./aws-env -f test.txt4                                                  
+$ ./aws-env -f test.txt4
 INFO[0000] aws-env starting                              app_version=0.0.1 built_at="Wed Mar 13 20:12:42 UTC 2019" git_hash=545515b6b6646f1bd2f95dea13478066782deb0c
 
 
-$ cat test.txt4                                                          
+$ cat test.txt4
 mysql_users:
  (
     {
@@ -203,6 +203,12 @@ changed using the `--prefix` flag (or `AWS_ENV_PREFIX` env var).
 aws-env exposes an `--assume-role` flag (or `AWS_ENV_ASSUME_ROLE`). This can
 be used to further assume roles if you have to gain access using a chain of
 roles.
+
+## Unset not found variables
+The default behaviour is to raise error in case some of the mapped variables
+are not found in AWS. You can pass --unset-not-found flaf (or `AWS_ENV_UNSET_NOT_FOUND`)
+to force the variable to present in AWS to be unset. Note that this does not
+work with combination with file replacement.
 
 ### Example Assume Role
 In Kubernetes, if you are using Annotations with a service role, `kube2iam`

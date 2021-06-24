@@ -2,15 +2,16 @@ package awsenv
 
 import (
 	"context"
+	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
 var (
-	setenv  = os.Setenv
-	environ = os.Environ
+	setenv   = os.Setenv
+	unsetenv = os.Unsetenv
+	environ  = os.Environ
 )
 
 // DefaultPrefix holds the standard environment value prefix.
@@ -35,22 +36,24 @@ type LimitedParamsGetter interface {
 // given value prefix, using the given ParamsGetter.
 //
 // NewReplacer will panic if envValuePrefix is the empty string.
-func NewReplacer(envValuePrefix string, ssm ParamsGetter) *Replacer {
+func NewReplacer(envValuePrefix string, unsetNotFound bool, ssm ParamsGetter) *Replacer {
 	if envValuePrefix == "" {
 		panic("awsenv: envValuePrefix must be non-empty")
 	}
 
 	return &Replacer{
-		ssm:    ssm,
-		prefix: envValuePrefix,
+		unsetNotFound: unsetNotFound,
+		ssm:           ssm,
+		prefix:        envValuePrefix,
 	}
 }
 
 // Replacer handles replacing existing environment variables with values
 // retrieved from AWS Parameter Store.
 type Replacer struct {
-	ssm    ParamsGetter
-	prefix string
+	unsetNotFound bool
+	ssm           ParamsGetter
+	prefix        string
 }
 
 // ReplaceAll overwrites applicable environment variables with values
@@ -65,6 +68,17 @@ func (r *Replacer) ReplaceAll(ctx context.Context) error {
 
 	for name, val := range vars {
 		suberr := setenv(name, val)
+		if err == nil && suberr != nil {
+			err = suberr
+		}
+	}
+
+	unmapped := unmappedVars(r.prefix, environ())
+	if len(unmapped) > 0 && !r.unsetNotFound {
+		return fmt.Errorf("following variables not found in AWS: %v", unmapped)
+	}
+	for _, name := range unmapped {
+		suberr := unsetenv(name)
 		if err == nil && suberr != nil {
 			err = suberr
 		}
@@ -110,7 +124,6 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 		// copied to avoid race condition
 		i := i
 		batch := batches[i]
-
 		eg.Go(func() error {
 			var err error
 			results[i], err = ssm.GetParams(ctx, batch)
@@ -126,13 +139,6 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 	// merge separate batch results into a single map
 	dest := make(map[string]string, len(paths))
 	merge(dest, results)
-
-	for _, path := range paths {
-		_, ok := dest[path]
-		if !ok {
-			return dest, errors.Errorf("awsenv: param not found: %q", path)
-		}
-	}
 
 	return dest, nil
 }
