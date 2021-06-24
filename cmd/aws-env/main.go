@@ -30,12 +30,13 @@ var (
 
 	app = initApp()
 
-	prefix     string
-	region     string
-	profile    string
-	assumeRole string
-	fileName   string
-	ecs        bool
+	prefix        string
+	unsetNotFound bool
+	region        string
+	profile       string
+	assumeRole    string
+	fileName      string
+	ecs           bool
 )
 
 const description = `
@@ -92,6 +93,12 @@ func initApp() *cli.App {
 			EnvVar:      "AWS_ENV_ECS",
 			Usage:       "enable ECS mode, using the default credential provider to support ECS",
 			Destination: &ecs,
+		},
+		cli.BoolFlag{
+			Name:        "unset-not-found",
+			EnvVar:      "AWS_ENV_UNSET_NOT_FOUND",
+			Usage:       "Unset variable not found in AWS",
+			Destination: &unsetNotFound,
 		},
 	}
 	newApp.Commands = append(newApp.Commands, cli.Command{
@@ -166,7 +173,7 @@ func run(c *cli.Context) error {
 }
 
 func envReplacement(c *cli.Context, ssmClient *ssm.SSM) error {
-	r := awsenv.NewReplacer(prefix, v1.NewParamsGetter(ssmClient))
+	r := awsenv.NewReplacer(prefix, unsetNotFound, v1.NewParamsGetter(ssmClient))
 
 	if c.NArg() == 0 {
 		return dump(r)
