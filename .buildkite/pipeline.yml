@@ -1,100 +1,40 @@
 steps:
-  # Changes to this variable will change whether or not your branch is
-  # promoted and uploaded.
-  # true = all commits will be packaged and uploaded to repository
-  # servers (without merging to main), but not deployed.
-  #
-  # false = main commits only will be packed and uploaded to repository
-  # servers, but not deployed
-  - label: 'set promote for stage'
-    if: build.branch != pipeline.default_branch
-    command:
-      - 'buildkite-agent meta-data set PROMOTEFORSTAGE `echo false`'
+  - label: Detect version
+    key: version
+    plugins:
+      sendgrid/chronicle#${CHRONICLE_PLUGIN_VERSION}:
+        action: issue-version
 
-  - wait
+  - label: Unit tests and code coverage
+    command: make test report
+    artifact_paths: coverage.html
 
-  # The purpose of the status check script is to add a comment to your
-  # pull requests that indicates whether or not this PR is ready to merge.
-  # If your repo is part of the SOX or SOC2 audit, do not remove this!
-  - label: 'status_check'
-    if: build.branch != pipeline.default_branch
-    command: 'workflow status_checks'
+  - label: Lint
+    command: make lint
 
-  # The purpose of this script is to determine what version you are
-  # attempting to bump to.  This script will then write out that version
-  # into a file named 'version_wf', which will be used by the build system
-  # to create pull requests, and your app itself may use the file as well.
-  - label: 'prebuild_determine_version'
-    env:
-      # Use automatic versioning.
-      AUTOTAGREPO: true
-    command:
-      - 'workflow prebuild_determine_version'
-      # We set VERSION_WF here in BuildKite metadata and consume it via
-      # pipeline hooks in every other step. If we don't do this,
-      # then version_wf will be missing.
-      - 'buildkite-agent meta-data set VERSION_WF `cat version_wf`'
-
-  - wait
-
-  ##############################
-  # Build, Test, Lint
-  ##############################
-  - label: 'Build Binary'
-    command: 'make artifact'
-    artifact_paths: 'aws-env'
-
-  - label: 'Unit Tests & Code Coverage'
-    command: 'make test && make report'
-    artifact_paths: 'coverage.html'
-
-  - label: 'Lint'
-    command: 'make lint'
-
-  - wait
-
-
-  ##############################
-  # Push Docker Image
-  ##############################
+  - label: Build binary
+    key: binary
+    depends_on: version
+    command: make artifact
+    artifact_paths: aws-env
 
   # On non-main builds, push latest and a pre-tagged version
-  - label: 'Build, Tag, & Push Pre-Image'
+  - label: Build and push docker pre-release image
     if: build.branch != pipeline.default_branch
-    command: 'make build-docker && make push && make push-pre-tagged'
+    depends_on: version
+    command: make build-docker push push-pre-tagged
 
   # On main builds, push the versioned image
-  - label: 'Build, Tag, & Push Image'
+  - label: Build push docker release image
     if: build.branch == pipeline.default_branch
-    command: 'make build-docker && make push && make push-tagged'
-
-  - wait
-
-  ##############################
-  # Package and Publish
-  ##############################
+    depends_on: version
+    command: make build-docker push push-tagged
 
   # On main builds, push the versioned image
-  - label: 'Release :shipit:'
+  - label: Release
     if: build.branch == pipeline.default_branch
+    depends_on: binary
     command:
-      - 'mkdir build'
-      - 'buildkite-agent artifact download aws-env build/'
-      - 'make release'
-
-  - wait
-
-  ##############################
-  # Post-Publish
-  ##############################
-
-  # This script will use the previously written version_wf file to update
-  # the version inside of github, as well as create release notes with a
-  # link back to the merged pull request.
-  #- label: 'postbuild_tagrepo_update_releasenotes'
-  #  env:
-  #    # Use automatic versioning.
-  #    AUTOTAGREPO: true
-  #    # Collapse the new release with the previous release.
-  #    WF_COLLAPSERELEASE: true
-  #  command: 'workflow postbuild_tagrepo_update_releasenotes'
+      - mkdir -p build
+      - buildkite-agent artifact download aws-env build/
+      - make release

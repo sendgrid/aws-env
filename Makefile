@@ -1,5 +1,5 @@
 GO_VERSION ?= 1.18
-GO_CI_VERSION = v1.31.0
+GO_CI_VERSION = v1.46.1
 BINARIES = aws-env
 WD ?= $(shell pwd)
 NAMESPACE=sendgrid
@@ -7,7 +7,7 @@ APPNAME=aws-env
 
 export GIT_COMMIT ?= $(shell git rev-parse --verify HEAD)
 export BUILD_DATE ?= $(shell date -u)
-export VERSION ?= $(or $(shell cat version_wf),0.0.1)
+export VER_VERSION ?= 0.0.1
 export BUILD_NUMBER ?= $(or $(BUILDKITE_BUILD_NUMBER),0)
 
 GO_FILES = $(shell find . -type f -name "*.go")
@@ -18,9 +18,9 @@ all: test lint build
 build: $(BINARIES)
 
 $(BINARIES): $(GO_FILES)
-	@echo "[$@]\n\tVersion: $(VERSION)\n\tBuild Date: $(BUILD_DATE)\n\tGit Commit: $(GIT_COMMIT)"
+	@echo "[$@]\n\tVersion: $(VER_VERSION)\n\tBuild Date: $(BUILD_DATE)\n\tGit Commit: $(GIT_COMMIT)"
 	@go build -mod readonly -a -tags netgo \
-		-ldflags '-w -X "main.version=$(VERSION)" -X "main.builtAt=$(BUILD_DATE)" -X "main.gitHash=$(GIT_COMMIT)" -extldflags -static' \
+		-ldflags '-w -X "main.version=$(VER_VERSION)" -X "main.builtAt=$(BUILD_DATE)" -X "main.gitHash=$(GIT_COMMIT)" -extldflags -static' \
 		./cmd/$@
 
 .PHONY: build-docker
@@ -28,7 +28,7 @@ build-docker:
 	@docker build -t aws-env \
 		--build-arg GIT_COMMIT \
 		--build-arg BUILD_DATE \
-		--build-arg VERSION \
+		--build-arg VER_VERSION \
 		--build-arg BUILD_NUMBER \
 		.
 	@docker tag aws-env docker.sendgrid.net/sendgrid/aws-env
@@ -39,8 +39,11 @@ push:
 
 .PHONY: push-tagged
 push-tagged:
-	docker tag docker.sendgrid.net/$(NAMESPACE)/$(APPNAME) docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VERSION)
-	docker push docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VERSION) 
+	docker tag \
+		"docker.sendgrid.net/$(NAMESPACE)/$(APPNAME)"
+		"docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VER_DOCKER_TAG)"
+
+	docker push "docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VER_DOCKER_TAG)"
 
 .PHONY: push-pre-tagged
 push-pre-tagged:
@@ -59,9 +62,9 @@ clean:
 test: coverage.txt
 coverage.txt: $(GO_FILES)
 	@docker run --rm \
-		-v $(WD):/code \
+		-v "$(WD):/code" \
 		-w /code \
-		golang:$(GO_VERSION) \
+		"golang:$(GO_VERSION)" \
 		sh -c "\
 		go test -mod readonly -v -race -coverprofile=coverage.out ./... && \
 		go tool cover -html=coverage.out -o coverage.html && \
