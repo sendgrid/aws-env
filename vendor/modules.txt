@@ -1,4 +1,5 @@
 # github.com/aws/aws-sdk-go v1.19.35
+## explicit
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -32,6 +33,7 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/ssm
 github.com/aws/aws-sdk-go/service/sts
 # github.com/aws/aws-sdk-go-v2 v0.6.0
+## explicit
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/awserr
 github.com/aws/aws-sdk-go-v2/aws/signer/v4
@@ -43,26 +45,42 @@ github.com/aws/aws-sdk-go-v2/private/protocol/jsonrpc
 github.com/aws/aws-sdk-go-v2/private/protocol/rest
 github.com/aws/aws-sdk-go-v2/service/ssm
 # github.com/davecgh/go-spew v1.1.1
+## explicit
 github.com/davecgh/go-spew/spew
 # github.com/gofrs/uuid v3.2.0+incompatible
+## explicit
 github.com/gofrs/uuid
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
+## explicit
 github.com/jmespath/go-jmespath
 # github.com/pkg/errors v0.8.0
+## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
+## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/sirupsen/logrus v1.0.5
+## explicit
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.2.2
+## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/urfave/cli v1.20.0
+## explicit
 github.com/urfave/cli
 # golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b
+## explicit
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
+## explicit
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20190225065934-cc5685c2db12
+# golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a
+## explicit; go 1.17
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+# gopkg.in/airbrake/gobrake.v2 v2.0.9
+## explicit
+# gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2
+## explicit
