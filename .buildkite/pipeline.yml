@@ -2,14 +2,14 @@ steps:
   # Changes to this variable will change whether or not your branch is
   # promoted and uploaded.
   # true = all commits will be packaged and uploaded to repository
-  # servers (without merging to master), but not deployed.
+  # servers (without merging to main), but not deployed.
   #
-  # false = master commits only will be packed and uploaded to repository
+  # false = main commits only will be packed and uploaded to repository
   # servers, but not deployed
   - label: 'set promote for stage'
+    if: build.branch != pipeline.default_branch
     command:
       - 'buildkite-agent meta-data set PROMOTEFORSTAGE `echo false`'
-    branches: '!master'
 
   - wait
 
@@ -17,8 +17,8 @@ steps:
   # pull requests that indicates whether or not this PR is ready to merge.
   # If your repo is part of the SOX or SOC2 audit, do not remove this!
   - label: 'status_check'
+    if: build.branch != pipeline.default_branch
     command: 'workflow status_checks'
-    branches: '!master'
 
   # The purpose of this script is to determine what version you are
   # attempting to bump to.  This script will then write out that version
@@ -58,15 +58,15 @@ steps:
   # Push Docker Image
   ##############################
 
-  # On non-master builds, push latest and a pre-tagged version
+  # On non-main builds, push latest and a pre-tagged version
   - label: 'Build, Tag, & Push Pre-Image'
+    if: build.branch != pipeline.default_branch
     command: 'make build-docker && make push && make push-pre-tagged'
-    branches: '!master'
 
-  # On master builds, push the versioned image
+  # On main builds, push the versioned image
   - label: 'Build, Tag, & Push Image'
+    if: build.branch == pipeline.default_branch
     command: 'make build-docker && make push && make push-tagged'
-    branches: 'master'
 
   - wait
 
@@ -74,13 +74,13 @@ steps:
   # Package and Publish
   ##############################
 
-  # On master builds, push the versioned image
+  # On main builds, push the versioned image
   - label: 'Release :shipit:'
+    if: build.branch == pipeline.default_branch
     command:
       - 'mkdir build'
       - 'buildkite-agent artifact download aws-env build/'
       - 'make release'
-    branches: 'master'
 
   - wait
 
