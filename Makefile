@@ -40,7 +40,7 @@ push:
 .PHONY: push-tagged
 push-tagged:
 	docker tag \
-		"docker.sendgrid.net/$(NAMESPACE)/$(APPNAME)"
+		"docker.sendgrid.net/$(NAMESPACE)/$(APPNAME)" \
 		"docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VER_DOCKER_TAG)"
 
 	docker push "docker.sendgrid.net/$(NAMESPACE)/$(APPNAME):$(VER_DOCKER_TAG)"
