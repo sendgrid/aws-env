@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.15
+ARG GO_VERSION=1.18
 
 # The build stage is used for building the aws-env binary and running tests.
 FROM golang:${GO_VERSION} AS build
