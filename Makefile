@@ -91,7 +91,7 @@ lint:
 		-w /code \
 		golang:$(GO_VERSION) \
 		sh -c "\
-		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b /go/bin $(GO_CI_VERSION) && \
+		curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin $(GO_CI_VERSION) && \
 		golangci-lint -v run --exclude-use-default=false --deadline 5m \
 			-E golint \
 			-E gosec \
