@@ -84,3 +84,22 @@ func pathmap(prefix string, env []string) map[string]string {
 
 	return m
 }
+
+func unmappedVars(prefix string, env []string) []string {
+	var vars []string
+
+	for _, rawVar := range env {
+		idx := strings.Index(rawVar, "=")
+		if idx < 0 {
+			// impossible on real systems?
+			continue
+		}
+
+		name, path := rawVar[:idx], rawVar[idx+1:]
+		if strings.HasPrefix(path, prefix) {
+			vars = append(vars, name)
+		}
+	}
+
+	return vars
+}

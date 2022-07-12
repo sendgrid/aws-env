@@ -13,7 +13,7 @@ func TestReplacer_panic(t *testing.T) {
 		return nil, errors.New("no implementation")
 	})
 
-	require.Panics(t, func() { NewReplacer("", mockGetter) })
+	require.Panics(t, func() { NewReplacer("", false, mockGetter) })
 }
 
 func TestReplacer_ReplaceAll_noop(t *testing.T) {
@@ -25,7 +25,7 @@ func TestReplacer_ReplaceAll_noop(t *testing.T) {
 	env.install()
 
 	ctx := context.Background()
-	r := NewReplacer("awsenv:", mockGetter)
+	r := NewReplacer("awsenv:", false, mockGetter)
 	err := r.ReplaceAll(ctx)
 	require.NoError(t, err, "expected no error")
 	require.Empty(t, env)
@@ -44,7 +44,7 @@ func TestReplacerMultiple(t *testing.T) {
 		"/param/path/here/v2": "val2",
 	}
 
-	r := NewReplacer(DefaultPrefix, params)
+	r := NewReplacer(DefaultPrefix, false, params)
 
 	ctx := context.Background()
 	err := r.ReplaceAll(ctx)
@@ -69,7 +69,7 @@ func TestReplacerNotFound(t *testing.T) {
 
 	var params mockParamStore
 
-	r := NewReplacer("awsenv:", params)
+	r := NewReplacer("awsenv:", false, params)
 
 	ctx := context.Background()
 	err := r.ReplaceAll(ctx)
@@ -87,11 +87,28 @@ func TestReplacerMissing(t *testing.T) {
 		return nil, nil
 	}
 
-	r := NewReplacer("awsenv:", mockParamsGetter(getter))
+	r := NewReplacer("awsenv:", false, mockParamsGetter(getter))
 	ctx := context.Background()
 
 	err := r.ReplaceAll(ctx)
 	require.Error(t, err, "expected an error")
+}
+
+func TestReplacerMissingWithUnsetNotFound(t *testing.T) {
+	env := fakeEnv{
+		"SOME_SECRET": "awsenv:/param/path/here/doesnt/exist", // match
+	}
+	env.install()
+
+	getter := func(context.Context, []string) (map[string]string, error) {
+		return nil, nil
+	}
+
+	r := NewReplacer("awsenv:", true, mockParamsGetter(getter))
+	ctx := context.Background()
+
+	err := r.ReplaceAll(ctx)
+	require.NoError(t, err, "expected no error")
 }
 
 type mockParamStore map[string]string
