@@ -9,12 +9,12 @@ import (
 )
 
 // NewParamsGetter implements awsenv.ParamsGetter using a v2 ssm client.
-func NewParamsGetter(ssm *ssm.SSM) awsenv.LimitedParamsGetter {
+func NewParamsGetter(ssm *ssm.Client) awsenv.LimitedParamsGetter {
 	return &fetcher{ssm, true}
 }
 
 type fetcher struct {
-	ssm     *ssm.SSM
+	ssm     *ssm.Client
 	decrypt bool
 }
 
@@ -26,10 +26,7 @@ func (f *fetcher) GetParams(ctx context.Context, names []string) (map[string]str
 		WithDecryption: &f.decrypt,
 	}
 
-	req := f.ssm.GetParametersRequest(input)
-	req.SetContext(ctx)
-
-	resp, err := req.Send()
+	resp, err := f.ssm.GetParameters(ctx, input)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,18 @@ package aws
 
 import (
 	"net/http"
+
+	smithybearer "github.com/aws/smithy-go/auth/bearer"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
 )
+
+// HTTPClient provides the interface to provide custom HTTPClients. Generally
+// *http.Client is sufficient for most use cases. The HTTPClient should not
+// follow 301 or 302 redirects.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
 
 // A Config provides service configuration for service clients.
 type Config struct {
@@ -15,78 +26,112 @@ type Config struct {
 	// information on AWS regions.
 	Region string
 
-	// The credentials object to use when signing requests. Defaults to a
-	// chain of credential providers to search for credentials in environment
-	// variables, shared credential file, and EC2 Instance Roles.
+	// The credentials object to use when signing requests.
+	// Use the LoadDefaultConfig to load configuration from all the SDK's supported
+	// sources, and resolve credentials using the SDK's default credential chain.
 	Credentials CredentialsProvider
 
-	// The resolver to use for looking up endpoints for AWS service clients
-	// to use based on region.
+	// The Bearer Authentication token provider to use for authenticating API
+	// operation calls with a Bearer Authentication token. The API clients and
+	// operation must support Bearer Authentication scheme in order for the
+	// token provider to be used. API clients created with NewFromConfig will
+	// automatically be configured with this option, if the API client support
+	// Bearer Authentication.
+	//
+	// The SDK's config.LoadDefaultConfig can automatically populate this
+	// option for external configuration options such as SSO session.
+	// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html
+	BearerAuthTokenProvider smithybearer.TokenProvider
+
+	// The HTTP Client the SDK's API clients will use to invoke HTTP requests.
+	// The SDK defaults to a BuildableClient allowing API clients to create
+	// copies of the HTTP Client for service specific customizations.
+	//
+	// Use a (*http.Client) for custom behavior. Using a custom http.Client
+	// will prevent the SDK from modifying the HTTP client.
+	HTTPClient HTTPClient
+
+	// An endpoint resolver that can be used to provide or override an endpoint
+	// for the given service and region.
+	//
+	// See the `aws.EndpointResolver` documentation for additional usage
+	// information.
+	//
+	// Deprecated: See Config.EndpointResolverWithOptions
 	EndpointResolver EndpointResolver
 
-	// The HTTP client to use when sending requests. Defaults to
-	// `http.DefaultClient`.
-	HTTPClient *http.Client
+	// An endpoint resolver that can be used to provide or override an endpoint
+	// for the given service and region.
+	//
+	// When EndpointResolverWithOptions is specified, it will be used by a
+	// service client rather than using EndpointResolver if also specified.
+	//
+	// See the `aws.EndpointResolverWithOptions` documentation for additional
+	// usage information.
+	EndpointResolverWithOptions EndpointResolverWithOptions
 
-	// TODO document
-	Handlers Handlers
+	// RetryMaxAttempts specifies the maximum number attempts an API client
+	// will call an operation that fails with a retryable error.
+	//
+	// API Clients will only use this value to construct a retryer if the
+	// Config.Retryer member is not nil. This value will be ignored if
+	// Retryer is not nil.
+	RetryMaxAttempts int
 
-	// Retryer guides how HTTP requests should be retried in case of
-	// recoverable failures.
+	// RetryMode specifies the retry model the API client will be created with.
 	//
-	// When nil or the value does not implement the request.Retryer interface,
-	// the client.DefaultRetryer will be used.
-	//
-	// When both Retryer and MaxRetries are non-nil, the former is used and
-	// the latter ignored.
-	//
-	// To set the Retryer field in a type-safe manner and with chaining, use
-	// the request.WithRetryer helper function:
-	//
-	//   cfg := request.WithRetryer(aws.NewConfig(), myRetryer)
-	Retryer Retryer
+	// API Clients will only use this value to construct a retryer if the
+	// Config.Retryer member is not nil. This value will be ignored if
+	// Retryer is not nil.
+	RetryMode RetryMode
 
-	// An integer value representing the logging level. The default log level
-	// is zero (LogOff), which represents no logging. To enable logging set
-	// to a LogLevel Value.
-	LogLevel LogLevel
+	// Retryer is a function that provides a Retryer implementation. A Retryer
+	// guides how HTTP requests should be retried in case of recoverable
+	// failures. When nil the API client will use a default retryer.
+	//
+	// In general, the provider function should return a new instance of a
+	// Retryer if you are attempting to provide a consistent Retryer
+	// configuration across all clients. This will ensure that each client will
+	// be provided a new instance of the Retryer implementation, and will avoid
+	// issues such as sharing the same retry token bucket across services.
+	//
+	// If not nil, RetryMaxAttempts, and RetryMode will be ignored by API
+	// clients.
+	Retryer func() Retryer
+
+	// ConfigSources are the sources that were used to construct the Config.
+	// Allows for additional configuration to be loaded by clients.
+	ConfigSources []interface{}
+
+	// APIOptions provides the set of middleware mutations modify how the API
+	// client requests will be handled. This is useful for adding additional
+	// tracing data to a request, or changing behavior of the SDK's client.
+	APIOptions []func(*middleware.Stack) error
 
 	// The logger writer interface to write logging messages to. Defaults to
-	// standard out.
-	Logger Logger
+	// standard error.
+	Logger logging.Logger
 
-	// EnforceShouldRetryCheck is used in the AfterRetryHandler to always call
-	// ShouldRetry regardless of whether or not if request.Retryable is set.
-	// This will utilize ShouldRetry method of custom retryers. If EnforceShouldRetryCheck
-	// is not set, then ShouldRetry will only be called if request.Retryable is nil.
-	// Proper handling of the request.Retryable field is important when setting this field.
+	// Configures the events that will be sent to the configured logger. This
+	// can be used to configure the logging of signing, retries, request, and
+	// responses of the SDK clients.
 	//
-	// TODO this config field is depercated and needs removed.
-	EnforceShouldRetryCheck bool
+	// See the ClientLogMode type documentation for the complete set of logging
+	// modes and available configuration.
+	ClientLogMode ClientLogMode
 
-	// DisableRestProtocolURICleaning will not clean the URL path when making
-	// rest protocol requests.  Will default to false. This would only be used
-	// for empty directory names in s3 requests.
+	// The configured DefaultsMode. If not specified, service clients will
+	// default to legacy.
 	//
-	// Example:
-	//    cfg, err := external.LoadDefaultAWSConfig()
-	//    cfg.DisableRestProtocolURICleaning = true
-	//
-	//    svc := s3.New(cfg)
-	//    out, err := svc.GetObject(&s3.GetObjectInput {
-	//    	Bucket: aws.String("bucketname"),
-	//    	Key: aws.String("//foo//bar//moo"),
-	//    })
-	//
-	// TODO need better way of representing support for this concept. Not on Config.
-	DisableRestProtocolURICleaning bool
+	// Supported modes are: auto, cross-region, in-region, legacy, mobile,
+	// standard
+	DefaultsMode DefaultsMode
 
-	// DisableEndpointHostPrefix will disable the SDK's behavior of prefixing
-	// request endpoint hosts with modeled information.
-	//
-	// Disabling this feature is useful when you want to use local endpoints
-	// for testing that do not support the modeled host prefix pattern.
-	DisableEndpointHostPrefix bool
+	// The RuntimeEnvironment configuration, only populated if the DefaultsMode
+	// is set to DefaultsModeAuto and is initialized by
+	// `config.LoadDefaultConfig`. You should not populate this structure
+	// programmatically, or rely on the values here within your applications.
+	RuntimeEnvironment RuntimeEnvironment
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder
@@ -99,7 +144,36 @@ func NewConfig() *Config {
 // configurations are provided they will be merged into the new config returned.
 func (c Config) Copy() Config {
 	cp := c
-	cp.Handlers = cp.Handlers.Copy()
-
 	return cp
 }
+
+// EndpointDiscoveryEnableState indicates if endpoint discovery is
+// enabled, disabled, auto or unset state.
+//
+// Default behavior (Auto or Unset) indicates operations that require endpoint
+// discovery will use Endpoint Discovery by default. Operations that
+// optionally use Endpoint Discovery will not use Endpoint Discovery
+// unless EndpointDiscovery is explicitly enabled.
+type EndpointDiscoveryEnableState uint
+
+// Enumeration values for EndpointDiscoveryEnableState
+const (
+	// EndpointDiscoveryUnset represents EndpointDiscoveryEnableState is unset.
+	// Users do not need to use this value explicitly. The behavior for unset
+	// is the same as for EndpointDiscoveryAuto.
+	EndpointDiscoveryUnset EndpointDiscoveryEnableState = iota
+
+	// EndpointDiscoveryAuto represents an AUTO state that allows endpoint
+	// discovery only when required by the api. This is the default
+	// configuration resolved by the client if endpoint discovery is neither
+	// enabled or disabled.
+	EndpointDiscoveryAuto // default state
+
+	// EndpointDiscoveryDisabled indicates client MUST not perform endpoint
+	// discovery even when required.
+	EndpointDiscoveryDisabled
+
+	// EndpointDiscoveryEnabled indicates client MUST always perform endpoint
+	// discovery if supported for the operation.
+	EndpointDiscoveryEnabled
+)
