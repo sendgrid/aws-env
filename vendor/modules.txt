@@ -1,5 +1,5 @@
-# github.com/aws/aws-sdk-go v1.19.35
-## explicit
+# github.com/aws/aws-sdk-go v1.33.0
+## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -18,11 +18,15 @@ github.com/aws/aws-sdk-go/aws/endpoints
 github.com/aws/aws-sdk-go/aws/request
 github.com/aws/aws-sdk-go/aws/session
 github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/internal/context
 github.com/aws/aws-sdk-go/internal/ini
 github.com/aws/aws-sdk-go/internal/sdkio
+github.com/aws/aws-sdk-go/internal/sdkmath
 github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/internal/strings
+github.com/aws/aws-sdk-go/internal/sync/singleflight
 github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
 github.com/aws/aws-sdk-go/private/protocol/jsonrpc
@@ -32,6 +36,7 @@ github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/ssm
 github.com/aws/aws-sdk-go/service/sts
+github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/aws/aws-sdk-go-v2 v0.6.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
@@ -50,10 +55,10 @@ github.com/davecgh/go-spew/spew
 # github.com/gofrs/uuid v3.2.0+incompatible
 ## explicit
 github.com/gofrs/uuid
-# github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
-## explicit
+# github.com/jmespath/go-jmespath v0.3.0
+## explicit; go 1.14
 github.com/jmespath/go-jmespath
-# github.com/pkg/errors v0.8.0
+# github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
@@ -62,14 +67,14 @@ github.com/pmezard/go-difflib/difflib
 # github.com/sirupsen/logrus v1.0.5
 ## explicit
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.2.2
-## explicit
+# github.com/stretchr/testify v1.5.1
+## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/urfave/cli v1.20.0
 ## explicit
 github.com/urfave/cli
-# golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 ## explicit
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
@@ -84,3 +89,6 @@ golang.org/x/sys/windows
 ## explicit
 # gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2
 ## explicit
+# gopkg.in/yaml.v2 v2.2.2
+## explicit
+gopkg.in/yaml.v2
