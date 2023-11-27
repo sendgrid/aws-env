@@ -113,43 +113,6 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-func TestTranslate(t *testing.T) {
-	tests := []struct {
-		src, trans, want map[string]string
-	}{
-		{
-			src:   nil,
-			trans: nil,
-			want:  map[string]string{},
-		},
-		{
-			src:   nil,
-			trans: map[string]string{"x": "a"},
-			want:  map[string]string{},
-		},
-		{
-			src:   map[string]string{"x": "1"},
-			trans: nil,
-			want:  map[string]string{},
-		},
-		{
-			src:   map[string]string{"x": "1", "y": "2"},
-			trans: map[string]string{"x": "a", "y": "b"},
-			want:  map[string]string{"a": "1", "b": "2"},
-		},
-	}
-
-	for _, test := range tests {
-		got := make(map[string]string)
-
-		translate(got, test.trans, test.src)
-		if !reflect.DeepEqual(got, test.want) {
-			t.Errorf("translate(%v, %v) -> %v, want %v",
-				test.trans, test.src, got, test.want)
-		}
-	}
-}
-
 func TestChunk(t *testing.T) {
 	tests := []struct {
 		size  int
@@ -222,31 +185,31 @@ func TestChunk(t *testing.T) {
 	}
 }
 
-func TestPathmap(t *testing.T) {
+func TestFilterPaths(t *testing.T) {
 	tests := []struct {
 		prefix string
-		input  []string
-		want   map[string]string
+		input  map[string]string
+		want   []string
 	}{
 		{
 			prefix: "",
 			input:  nil,
-			want:   map[string]string{},
+			want:   []string{},
 		},
 		{
 			prefix: "awsenv:",
-			input:  []string{"BAD", "X=1", "Y=pre:/y", "Z=awsenv:/z"},
-			want:   map[string]string{"/z": "Z"},
+			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
+			want:   []string{"/z"},
 		},
 		{
 			prefix: "pre:",
-			input:  []string{"BAD", "X=1", "Y=pre:/y", "Z=awsenv:/z"},
-			want:   map[string]string{"/y": "Y"},
+			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
+			want:   []string{"/y"},
 		},
 	}
 
 	for _, test := range tests {
-		got := pathmap(test.prefix, test.input)
+		got := filterPaths(test.prefix, test.input)
 		if !reflect.DeepEqual(got, test.want) {
 			t.Errorf("pathmap(%q, %q) = %v, want %v",
 				test.prefix, test.input, got, test.want)

@@ -3,6 +3,7 @@ package awsenv
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -55,8 +56,7 @@ type Replacer struct {
 
 // ReplaceAll overwrites applicable environment variables with values
 // retrieved from Parameter Store. ReplaceAll will attempt to replace
-// as many values as possible, after which it will return the first error
-// that occurred.
+// as many values as possible,
 func (r *Replacer) ReplaceAll(ctx context.Context) error {
 	vars, err := r.Replacements(ctx)
 	if err != nil {
@@ -73,23 +73,31 @@ func (r *Replacer) ReplaceAll(ctx context.Context) error {
 	return err
 }
 
+// MustReplaceAll overwrites the applicable environment generating a panic if something goes wrong.
+func (r *Replacer) MustReplaceAll(ctx context.Context) {
+	err := r.ReplaceAll(ctx)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Replacements returns a map of environment variable names to new values
 // that have been fetched from Parameter Store.
 func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) {
-	// param path -> env name
-	pathvars := pathmap(r.prefix, environ())
+	// environment variables parsed
+	envvars := parseEnvironment(environ())
+
+	// param path
+	pathvars := filterPaths(r.prefix, envvars)
 
 	// param path -> env value
-	pathvals, err := fetch(ctx, r.ssm, keys(pathvars))
+	pathvals, err := fetch(ctx, r.ssm, pathvars)
 	if err != nil {
 		return nil, err
 	}
 
-	// env name -> env value
-	dest := make(map[string]string, len(pathvals))
-	translate(dest, pathvars, pathvals)
-
-	return dest, nil
+	envvars = applyPaths(r.prefix, envvars, pathvals)
+	return envvars, nil
 }
 
 func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]string, error) {
@@ -135,4 +143,21 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 	}
 
 	return dest, nil
+}
+
+// apply applies values from src keys translated through
+// trans.
+func applyPaths(prefix string, src map[string]string, replaceWithValues map[string]string) map[string]string {
+	for name, value := range src {
+		// If the value lacks a prefix we skip it.
+		if !strings.HasPrefix(value, prefix) {
+			continue
+		}
+
+		lookupValue := strings.TrimPrefix(value, prefix)
+		if val, ok := replaceWithValues[lookupValue]; ok {
+			src[name] = val
+		}
+	}
+	return src
 }

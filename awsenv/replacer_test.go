@@ -3,6 +3,8 @@ package awsenv
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,6 +57,37 @@ func TestReplacerMultiple(t *testing.T) {
 		"DB_PASSWORD":       "test", // unchanged
 		"SOME_SECRET":       "val1", // replaced
 		"SOME_OTHER_SECRET": "val2", // replaced
+	}
+
+	require.Equal(t, want, env)
+}
+
+func TestReplacerMultipleSameValue(t *testing.T) {
+	env := fakeEnv{
+		"DB_PASSWORD":           "test",                       // no matching prefix
+		"SOME_SECRET":           "awsenv:/param/path/here",    // match
+		"SOME_OTHER_SECRET":     "awsenv:/param/path/here/v2", // match
+		"SOME_OTHER_DUPLICATED": "awsenv:/param/path/here/v2", // match
+	}
+	env.install()
+
+	params := mockParamStore{
+		"/param/path/here":    "val1",
+		"/param/path/here/v2": "val2",
+	}
+
+	r := NewReplacer(DefaultPrefix, params)
+
+	ctx := context.Background()
+	err := r.ReplaceAll(ctx)
+
+	require.NoError(t, err, "expected no error")
+
+	want := fakeEnv{
+		"DB_PASSWORD":           "test", // unchanged
+		"SOME_SECRET":           "val1", // replaced
+		"SOME_OTHER_SECRET":     "val2", // replaced
+		"SOME_OTHER_DUPLICATED": "val2", // replaced
 	}
 
 	require.Equal(t, want, env)
@@ -132,4 +165,49 @@ type mockParamsGetter func(context.Context, []string) (map[string]string, error)
 
 func (f mockParamsGetter) GetParams(ctx context.Context, paths []string) (map[string]string, error) {
 	return f(ctx, paths)
+}
+
+func TestApplyPaths(t *testing.T) {
+	tests := []struct {
+		prefix            string
+		src               map[string]string
+		replaceWithValues map[string]string
+		want              map[string]string
+	}{
+		{
+			prefix:            "awsenv:",
+			src:               nil,
+			replaceWithValues: nil,
+			want:              nil,
+		},
+		{
+			prefix:            "awsenv:",
+			src:               map[string]string{},
+			replaceWithValues: map[string]string{"x": "a"},
+			want:              map[string]string{},
+		},
+		{
+			prefix:            "awsenv:",
+			src:               map[string]string{"x": "1"},
+			replaceWithValues: nil,
+			want:              map[string]string{"x": "1"},
+		},
+		{
+			prefix:            "awsenv:",
+			src:               map[string]string{"x": "awsenv:/a", "y": "awsenv:/b"},
+			replaceWithValues: map[string]string{"/a": "a", "/b": "b"},
+			want:              map[string]string{"x": "a", "y": "b"},
+		},
+	}
+
+	for idx, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("test_%v", idx), func(t *testing.T) {
+			got, want := applyPaths(test.prefix, test.src, test.replaceWithValues), test.want
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("applyPaths(%v, %v, %v) -> %v, want %v",
+					test.prefix, test.src, test.replaceWithValues, got, test.want)
+			}
+		})
+	}
 }

@@ -32,17 +32,6 @@ func merge(dest map[string]string, srcs []map[string]string) {
 	}
 }
 
-// translate moves values from src to dest using keys translated through
-// trans.
-func translate(dest, trans, src map[string]string) {
-	for oldkey, val := range src {
-		newkey, ok := trans[oldkey]
-		if ok {
-			dest[newkey] = val
-		}
-	}
-}
-
 func chunk(size int, lst []string) [][]string {
 	if len(lst) == 0 {
 		return nil
@@ -62,9 +51,9 @@ func chunk(size int, lst []string) [][]string {
 	return chunks
 }
 
-func pathmap(prefix string, env []string) map[string]string {
-	// param path -> env var name
-	m := make(map[string]string, len(env))
+// parseEnvironment takes the results of environ and converts it into a map of Environment Keys => Values
+func parseEnvironment(env []string) map[string]string {
+	envvars := make(map[string]string, len(env))
 
 	for _, rawVar := range env {
 		idx := strings.Index(rawVar, "=")
@@ -73,14 +62,25 @@ func pathmap(prefix string, env []string) map[string]string {
 			continue
 		}
 
-		name, path := rawVar[:idx], rawVar[idx+1:]
-		if !strings.HasPrefix(path, prefix) {
+		key, value := rawVar[:idx], rawVar[idx+1:]
+		envvars[key] = value
+	}
+
+	return envvars
+}
+
+func filterPaths(prefix string, envvars map[string]string) []string {
+	// param path
+	values := make([]string, 0, len(envvars))
+
+	for _, value := range envvars {
+		if !strings.HasPrefix(value, prefix) {
 			continue
 		}
 
-		path = strings.TrimPrefix(path, prefix)
-		m[path] = name
+		value = strings.TrimPrefix(value, prefix)
+		values = append(values, value)
 	}
 
-	return m
+	return values
 }
