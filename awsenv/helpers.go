@@ -68,19 +68,3 @@ func parseEnvironment(env []string) map[string]string {
 
 	return envvars
 }
-
-func filterPaths(prefix string, envvars map[string]string) []string {
-	// param path
-	values := make([]string, 0, len(envvars))
-
-	for _, value := range envvars {
-		if !strings.HasPrefix(value, prefix) {
-			continue
-		}
-
-		value = strings.TrimPrefix(value, prefix)
-		values = append(values, value)
-	}
-
-	return values
-}

@@ -167,6 +167,38 @@ func (f mockParamsGetter) GetParams(ctx context.Context, paths []string) (map[st
 	return f(ctx, paths)
 }
 
+func TestFilterPaths(t *testing.T) {
+	tests := []struct {
+		prefix string
+		input  map[string]string
+		want   []string
+	}{
+		{
+			prefix: "",
+			input:  nil,
+			want:   []string{},
+		},
+		{
+			prefix: "awsenv:",
+			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
+			want:   []string{"/z"},
+		},
+		{
+			prefix: "pre:",
+			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
+			want:   []string{"/y"},
+		},
+	}
+
+	for _, test := range tests {
+		r := Replacer{prefix: test.prefix}
+		got, want := r.filterPaths(test.input), test.want
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("filterPaths(%q) = %v, want %v", test.input, got, want)
+		}
+	}
+}
+
 func TestApplyPaths(t *testing.T) {
 	tests := []struct {
 		prefix            string
@@ -187,6 +219,12 @@ func TestApplyPaths(t *testing.T) {
 			want:              map[string]string{},
 		},
 		{
+			prefix:            "pre:",
+			src:               map[string]string{"x": "pre:/a", "y": "pre:/b", "z": "awsenv:/c"},
+			replaceWithValues: map[string]string{"/a": "A", "/b": "B", "/c": "C"},
+			want:              map[string]string{"x": "A", "y": "B", "z": "awsenv:/c"},
+		},
+		{
 			prefix:            "awsenv:",
 			src:               map[string]string{"x": "1"},
 			replaceWithValues: nil,
@@ -195,18 +233,19 @@ func TestApplyPaths(t *testing.T) {
 		{
 			prefix:            "awsenv:",
 			src:               map[string]string{"x": "awsenv:/a", "y": "awsenv:/b"},
-			replaceWithValues: map[string]string{"/a": "a", "/b": "b"},
-			want:              map[string]string{"x": "a", "y": "b"},
+			replaceWithValues: map[string]string{"/a": "A", "/b": "B"},
+			want:              map[string]string{"x": "A", "y": "B"},
 		},
 	}
 
 	for idx, test := range tests {
 		test := test
 		t.Run(fmt.Sprintf("test_%v", idx), func(t *testing.T) {
-			got, want := applyPaths(test.prefix, test.src, test.replaceWithValues), test.want
+			r := &Replacer{prefix: test.prefix}
+			got, want := r.applyPaths(test.src, test.replaceWithValues), test.want
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("applyPaths(%v, %v, %v) -> %v, want %v",
-					test.prefix, test.src, test.replaceWithValues, got, test.want)
+				t.Errorf("applyPaths(%v, %v) -> %v, want %v",
+					test.src, test.replaceWithValues, got, test.want)
 			}
 		})
 	}

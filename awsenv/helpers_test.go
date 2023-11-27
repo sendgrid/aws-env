@@ -184,35 +184,3 @@ func TestChunk(t *testing.T) {
 		}
 	}
 }
-
-func TestFilterPaths(t *testing.T) {
-	tests := []struct {
-		prefix string
-		input  map[string]string
-		want   []string
-	}{
-		{
-			prefix: "",
-			input:  nil,
-			want:   []string{},
-		},
-		{
-			prefix: "awsenv:",
-			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
-			want:   []string{"/z"},
-		},
-		{
-			prefix: "pre:",
-			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
-			want:   []string{"/y"},
-		},
-	}
-
-	for _, test := range tests {
-		got := filterPaths(test.prefix, test.input)
-		if !reflect.DeepEqual(got, test.want) {
-			t.Errorf("pathmap(%q, %q) = %v, want %v",
-				test.prefix, test.input, got, test.want)
-		}
-	}
-}
