@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func licenseCommand(c *cli.Context) error {
+func licenseCommand(_ *cli.Context) error {
 	fmt.Println(`
 	https://github.com/pkg/errors
 	Copyright (c) 2015, Dave Cheney <dave@cheney.net>

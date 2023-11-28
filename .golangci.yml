@@ -1,0 +1,24 @@
+# Based on https://github.com/golangci/golangci-lint/blob/master/.golangci.example.yml
+
+run:
+  modules-download-mode: vendor
+  # The default concurrency value is the number of available CPU.
+  concurrency: 4
+  # Timeout for analysis, e.g. 30s, 5m.
+  # Default: 1m
+  timeout: 5m
+
+output:
+  # Useful for deterministic output ordering.
+  sort-results: true
+
+linters:
+  enable:
+    - govet
+    - gosec
+    - unconvert
+    - unparam
+    - gocyclo
+    - misspell
+    - gocritic
+    - testifylint

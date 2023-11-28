@@ -9,9 +9,12 @@ aws --region us-east-1 ssm put-parameter --name /some/test/key --value "my-secre
 # Test eval invocation
 echo "Eval Invocation:"
 export AWS_ENV_TEST_KEY_EVAL='awsenv:/some/test/key'
+export AWS_ENV_TEST_KEY_EVAL2='awsenv:/some/test/key'
 echo "before: AWS_ENV_TEST_KEY_EVAL=$AWS_ENV_TEST_KEY_EVAL"
+echo "before: AWS_ENV_TEST_KEY_EVAL2=$AWS_ENV_TEST_KEY_EVAL2"
 eval $(./aws-env)
 echo "after: AWS_ENV_TEST_KEY_EVAL=$AWS_ENV_TEST_KEY_EVAL"
+echo "after: AWS_ENV_TEST_KEY_EVAL2=$AWS_ENV_TEST_KEY_EVAL2"
 
 echo ""
 

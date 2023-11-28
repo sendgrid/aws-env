@@ -9,6 +9,10 @@ import (
 	"unicode"
 )
 
+var (
+	readFile = ioutil.ReadFile
+)
+
 // FileReplacer handles replacing the first instance per line of a prefixed
 // field  and updating it with a value retrieved from AWS Parameter Store.
 type FileReplacer struct {
@@ -52,7 +56,7 @@ func NewFileReplacer(prefix, fileName string, ssm ParamsGetter) *FileReplacer {
 // return the first error that occurred.
 func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 
-	f, err := ioutil.ReadFile(r.fileName)
+	f, err := readFile(r.fileName)
 	if err != nil {
 		return err
 	}
@@ -114,6 +118,14 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// MustReplaceAll overwrites the applicable environment and generates a panic if something goes wrong.
+func (r *FileReplacer) MustReplaceAll(ctx context.Context) {
+	err := r.ReplaceAll(ctx)
+	if err != nil {
+		panic(err)
+	}
 }
 
 type replacementIndex struct {

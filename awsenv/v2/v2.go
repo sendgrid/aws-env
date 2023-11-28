@@ -4,17 +4,27 @@ package v2
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+
 	"github.com/sendgrid/aws-env/awsenv"
 )
 
+// ssmGetParametersAPI defines the interface for the GetParameters function.
+// We use this interface to test the function using a mocked service.
+type ssmGetParametersAPI interface {
+	GetParameters(ctx context.Context,
+		params *ssm.GetParametersInput,
+		optFns ...func(*ssm.Options)) (*ssm.GetParametersOutput, error)
+}
+
 // NewParamsGetter implements awsenv.ParamsGetter using a v2 ssm client.
-func NewParamsGetter(ssm *ssm.SSM) awsenv.LimitedParamsGetter {
+func NewParamsGetter(ssm ssmGetParametersAPI) awsenv.LimitedParamsGetter {
 	return &fetcher{ssm, true}
 }
 
 type fetcher struct {
-	ssm     *ssm.SSM
+	ssm     ssmGetParametersAPI
 	decrypt bool
 }
 
@@ -26,10 +36,7 @@ func (f *fetcher) GetParams(ctx context.Context, names []string) (map[string]str
 		WithDecryption: &f.decrypt,
 	}
 
-	req := f.ssm.GetParametersRequest(input)
-	req.SetContext(ctx)
-
-	resp, err := req.Send()
+	resp, err := f.ssm.GetParameters(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -40,4 +47,17 @@ func (f *fetcher) GetParams(ctx context.Context, names []string) (map[string]str
 	}
 
 	return m, nil
+}
+
+// MustReplaceEnv replaces the environment with values from ssm parameter store.
+func MustReplaceEnv() {
+	ctx := context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		panic("configuration error, " + err.Error())
+	}
+
+	replacer := awsenv.NewReplacer(awsenv.DefaultPrefix, NewParamsGetter(ssm.NewFromConfig(cfg)))
+
+	replacer.MustReplaceAll(ctx)
 }

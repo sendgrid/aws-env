@@ -3,6 +3,7 @@ package awsenv
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -55,8 +56,7 @@ type Replacer struct {
 
 // ReplaceAll overwrites applicable environment variables with values
 // retrieved from Parameter Store. ReplaceAll will attempt to replace
-// as many values as possible, after which it will return the first error
-// that occurred.
+// as many values as possible.
 func (r *Replacer) ReplaceAll(ctx context.Context) error {
 	vars, err := r.Replacements(ctx)
 	if err != nil {
@@ -73,23 +73,66 @@ func (r *Replacer) ReplaceAll(ctx context.Context) error {
 	return err
 }
 
+// MustReplaceAll overwrites the applicable environment generating a panic if something goes wrong.
+func (r *Replacer) MustReplaceAll(ctx context.Context) {
+	err := r.ReplaceAll(ctx)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Replacements returns a map of environment variable names to new values
 // that have been fetched from Parameter Store.
 func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) {
-	// param path -> env name
-	pathvars := pathmap(r.prefix, environ())
+	// environment variables parsed
+	envvars := parseEnvironment(environ())
+
+	// param path
+	pathvars := r.filterPaths(envvars)
 
 	// param path -> env value
-	pathvals, err := fetch(ctx, r.ssm, keys(pathvars))
+	pathvals, err := fetch(ctx, r.ssm, pathvars)
 	if err != nil {
 		return nil, err
 	}
 
-	// env name -> env value
-	dest := make(map[string]string, len(pathvals))
-	translate(dest, pathvars, pathvals)
+	envvars = r.applyParamPathValues(envvars, pathvals)
+	return envvars, nil
+}
 
-	return dest, nil
+// filterPaths filters out all the path.
+func (r *Replacer) filterPaths(envvars map[string]string) []string {
+	if len(envvars) == 0 {
+		return nil
+	}
+	// param path
+	values := make([]string, 0, len(envvars))
+
+	for _, value := range envvars {
+		if !strings.HasPrefix(value, r.prefix) {
+			continue
+		}
+
+		values = append(values, strings.TrimPrefix(value, r.prefix))
+	}
+
+	return values
+}
+
+// applyParamPathValues takes applies values from src keys translated through
+func (r *Replacer) applyParamPathValues(srcEnv map[string]string, replaceWithValues map[string]string) map[string]string {
+	for name, value := range srcEnv {
+		// If the value lacks a prefix we skip it.
+		if !strings.HasPrefix(value, r.prefix) {
+			continue
+		}
+
+		lookupValue := strings.TrimPrefix(value, r.prefix)
+		if val, ok := replaceWithValues[lookupValue]; ok {
+			srcEnv[name] = val
+		}
+	}
+	return srcEnv
 }
 
 func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]string, error) {
