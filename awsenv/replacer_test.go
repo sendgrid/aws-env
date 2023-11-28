@@ -18,6 +18,22 @@ func TestReplacer_panic(t *testing.T) {
 	require.Panics(t, func() { NewReplacer("", mockGetter) })
 }
 
+func TestReplacer_MustReplaceAll(t *testing.T) {
+	env := fakeEnv{
+		"DB_PASSWORD": "test",                    // no matching prefix
+		"SOME_SECRET": "awsenv:/param/path/here", // match
+	}
+	env.install()
+
+	var params mockParamStore
+
+	r := NewReplacer("awsenv:", params)
+
+	ctx := context.Background()
+
+	require.Panics(t, func() { r.MustReplaceAll(ctx) })
+}
+
 func TestReplacer_ReplaceAll_noop(t *testing.T) {
 	mockGetter := mockParamsGetter(func(context.Context, []string) (map[string]string, error) {
 		return nil, errors.New("forced")
@@ -64,10 +80,11 @@ func TestReplacerMultiple(t *testing.T) {
 
 func TestReplacerMultipleSameValue(t *testing.T) {
 	env := fakeEnv{
-		"DB_PASSWORD":           "test",                       // no matching prefix
-		"SOME_SECRET":           "awsenv:/param/path/here",    // match
-		"SOME_OTHER_SECRET":     "awsenv:/param/path/here/v2", // match
-		"SOME_OTHER_DUPLICATED": "awsenv:/param/path/here/v2", // match
+		"DB_PASSWORD":             "test",                        // no matching prefix
+		"SOME_SECRET":             "awsenv:/param/path/here",     // match
+		"SOME_OTHER_SECRET":       "awsenv:/param/path/here/v2",  // match
+		"SOME_OTHER_DUPLICATED":   "awsenv:/param/path/here/v2",  // match
+		"SOME_OTHER_NOT_REPLACED": "pre:/param/path/ignore/here", //not a matching prefix
 	}
 	env.install()
 
@@ -84,10 +101,11 @@ func TestReplacerMultipleSameValue(t *testing.T) {
 	require.NoError(t, err, "expected no error")
 
 	want := fakeEnv{
-		"DB_PASSWORD":           "test", // unchanged
-		"SOME_SECRET":           "val1", // replaced
-		"SOME_OTHER_SECRET":     "val2", // replaced
-		"SOME_OTHER_DUPLICATED": "val2", // replaced
+		"DB_PASSWORD":             "test",                        // unchanged
+		"SOME_SECRET":             "val1",                        // replaced
+		"SOME_OTHER_SECRET":       "val2",                        // replaced
+		"SOME_OTHER_DUPLICATED":   "val2",                        // replaced
+		"SOME_OTHER_NOT_REPLACED": "pre:/param/path/ignore/here", // unchanged
 	}
 
 	require.Equal(t, want, env)
@@ -242,7 +260,7 @@ func TestApplyPaths(t *testing.T) {
 		test := test
 		t.Run(fmt.Sprintf("test_%v", idx), func(t *testing.T) {
 			r := &Replacer{prefix: test.prefix}
-			got, want := r.applyPaths(test.src, test.replaceWithValues), test.want
+			got, want := r.applyParamPathValues(test.src, test.replaceWithValues), test.want
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("applyPaths(%v, %v) -> %v, want %v",
 					test.src, test.replaceWithValues, got, test.want)

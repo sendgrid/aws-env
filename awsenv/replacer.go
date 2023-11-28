@@ -56,7 +56,7 @@ type Replacer struct {
 
 // ReplaceAll overwrites applicable environment variables with values
 // retrieved from Parameter Store. ReplaceAll will attempt to replace
-// as many values as possible,
+// as many values as possible.
 func (r *Replacer) ReplaceAll(ctx context.Context) error {
 	vars, err := r.Replacements(ctx)
 	if err != nil {
@@ -96,7 +96,7 @@ func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) 
 		return nil, err
 	}
 
-	envvars = r.applyPaths(envvars, pathvals)
+	envvars = r.applyParamPathValues(envvars, pathvals)
 	return envvars, nil
 }
 
@@ -163,7 +163,7 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 
 // apply applies values from src keys translated through
 // trans.
-func (r *Replacer) applyPaths(src map[string]string, replaceWithValues map[string]string) map[string]string {
+func (r *Replacer) applyParamPathValues(src map[string]string, replaceWithValues map[string]string) map[string]string {
 	for name, value := range src {
 		// If the value lacks a prefix we skip it.
 		if !strings.HasPrefix(value, r.prefix) {
