@@ -1,3 +1,4 @@
 /aws-env
 /coverage.*
 version_wf
+.DS_Store
