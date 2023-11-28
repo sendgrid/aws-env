@@ -1,17 +1,9 @@
 package aws
 
-import "github.com/aws/aws-sdk-go-v2/aws/awserr"
+// MissingRegionError is an error that is returned if region configuration
+// value was not found.
+type MissingRegionError struct{}
 
-var (
-	// ErrMissingRegion is an error that is returned if region configuration is
-	// not found.
-	//
-	// @readonly
-	ErrMissingRegion = awserr.New("MissingRegion", "could not find region configuration", nil)
-
-	// ErrMissingEndpoint is an error that is returned if an endpoint cannot be
-	// resolved for a service.
-	//
-	// @readonly
-	ErrMissingEndpoint = awserr.New("MissingEndpoint", "'Endpoint' configuration is required for this service", nil)
-)
+func (*MissingRegionError) Error() string {
+	return "an AWS region is required, but was not found"
+}
