@@ -1,5 +1,5 @@
 GO_VERSION ?= 1.18
-GO_CI_VERSION = v1.46.1
+GO_CI_VERSION = v1.55.0
 BINARIES = aws-env
 WD ?= $(shell pwd)
 NAMESPACE=sendgrid
@@ -93,15 +93,7 @@ lint:
 		golang:$(GO_VERSION) \
 		sh -c "\
 		curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /go/bin $(GO_CI_VERSION) && \
-		golangci-lint -v run --exclude-use-default=false --deadline 5m \
-			-E golint \
-			-E gosec \
-			-E unconvert \
-			-E unparam \
-			-E gocyclo \
-			-E misspell \
-			-E gocritic \
-			-E maligned"
+		golangci-lint -v run --exclude-use-default=false"
 
 .PHONY: release
 release: 

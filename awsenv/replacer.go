@@ -100,7 +100,11 @@ func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) 
 	return envvars, nil
 }
 
+// filterPaths filters out all the path.
 func (r *Replacer) filterPaths(envvars map[string]string) []string {
+	if len(envvars) == 0 {
+		return nil
+	}
 	// param path
 	values := make([]string, 0, len(envvars))
 
@@ -109,11 +113,26 @@ func (r *Replacer) filterPaths(envvars map[string]string) []string {
 			continue
 		}
 
-		value = strings.TrimPrefix(value, r.prefix)
-		values = append(values, value)
+		values = append(values, strings.TrimPrefix(value, r.prefix))
 	}
 
 	return values
+}
+
+// applyParamPathValues takes applies values from src keys translated through
+func (r *Replacer) applyParamPathValues(srcEnv map[string]string, replaceWithValues map[string]string) map[string]string {
+	for name, value := range srcEnv {
+		// If the value lacks a prefix we skip it.
+		if !strings.HasPrefix(value, r.prefix) {
+			continue
+		}
+
+		lookupValue := strings.TrimPrefix(value, r.prefix)
+		if val, ok := replaceWithValues[lookupValue]; ok {
+			srcEnv[name] = val
+		}
+	}
+	return srcEnv
 }
 
 func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]string, error) {
@@ -159,21 +178,4 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 	}
 
 	return dest, nil
-}
-
-// apply applies values from src keys translated through
-// trans.
-func (r *Replacer) applyParamPathValues(src map[string]string, replaceWithValues map[string]string) map[string]string {
-	for name, value := range src {
-		// If the value lacks a prefix we skip it.
-		if !strings.HasPrefix(value, r.prefix) {
-			continue
-		}
-
-		lookupValue := strings.TrimPrefix(value, r.prefix)
-		if val, ok := replaceWithValues[lookupValue]; ok {
-			src[name] = val
-		}
-	}
-	return src
 }

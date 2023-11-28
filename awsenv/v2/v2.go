@@ -10,21 +10,21 @@ import (
 	"github.com/sendgrid/aws-env/awsenv"
 )
 
-// SSMGetParametersAPI defines the interface for the GetParameters function.
+// ssmGetParametersAPI defines the interface for the GetParameters function.
 // We use this interface to test the function using a mocked service.
-type SSMGetParametersAPI interface {
+type ssmGetParametersAPI interface {
 	GetParameters(ctx context.Context,
 		params *ssm.GetParametersInput,
 		optFns ...func(*ssm.Options)) (*ssm.GetParametersOutput, error)
 }
 
 // NewParamsGetter implements awsenv.ParamsGetter using a v2 ssm client.
-func NewParamsGetter(ssm SSMGetParametersAPI) awsenv.LimitedParamsGetter {
+func NewParamsGetter(ssm ssmGetParametersAPI) awsenv.LimitedParamsGetter {
 	return &fetcher{ssm, true}
 }
 
 type fetcher struct {
-	ssm     SSMGetParametersAPI
+	ssm     ssmGetParametersAPI
 	decrypt bool
 }
 

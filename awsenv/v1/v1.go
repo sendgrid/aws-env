@@ -12,21 +12,21 @@ import (
 	"github.com/sendgrid/aws-env/awsenv"
 )
 
-// SSMGetParametersAPI defines the interface for the GetParameters function.
+// ssmGetParametersAPI defines the interface for the GetParameters function.
 // We use this interface to test the function using a mocked service.
-type SSMGetParametersAPI interface {
+type ssmGetParametersAPI interface {
 	GetParametersWithContext(ctx aws.Context,
 		input *ssm.GetParametersInput,
 		opts ...request.Option) (*ssm.GetParametersOutput, error)
 }
 
 // NewParamsGetter implements awsenv.ParamsGetter using a v1 ssm client.
-func NewParamsGetter(ssm SSMGetParametersAPI) awsenv.LimitedParamsGetter {
+func NewParamsGetter(ssm ssmGetParametersAPI) awsenv.LimitedParamsGetter {
 	return &fetcher{ssm, true}
 }
 
 type fetcher struct {
-	ssm     SSMGetParametersAPI
+	ssm     ssmGetParametersAPI
 	decrypt bool
 }
 
@@ -56,6 +56,7 @@ func (f *fetcher) GetParams(ctx context.Context, names []string) (map[string]str
 	return m, nil
 }
 
+// MustReplaceEnv replaces the environment with values from ssm parameter store.
 func MustReplaceEnv() {
 	sess := session.Must(session.NewSession(
 		&aws.Config{

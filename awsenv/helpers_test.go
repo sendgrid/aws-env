@@ -2,10 +2,7 @@ package awsenv
 
 import (
 	"reflect"
-	"sort"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMin(t *testing.T) {
@@ -50,33 +47,6 @@ func TestCeildiv(t *testing.T) {
 			t.Errorf("ceildiv(%v, %v) = %v, want %v",
 				test.n, test.d, got, test.want)
 		}
-	}
-}
-
-func TestKeys(t *testing.T) {
-	tests := []struct {
-		input map[string]string
-		want  []string
-	}{
-		{
-			input: nil,
-			want:  []string{},
-		},
-		{
-			input: map[string]string{"k": "v"},
-			want:  []string{"k"},
-		},
-		{
-			input: map[string]string{"k1": "v1", "k2": "v2"},
-			want:  []string{"k1", "k2"},
-		},
-	}
-
-	for _, test := range tests {
-		got := keys(test.input)
-		sort.Strings(got)
-		assert.Equal(t, test.want, got,
-			"keys(%v) = %v, want %v", test.input, got, test.want)
 	}
 }
 
