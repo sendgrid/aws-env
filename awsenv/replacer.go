@@ -103,7 +103,7 @@ func (r *Replacer) Replacements(ctx context.Context) (map[string]string, error) 
 // filterPaths filters out all the path.
 func (r *Replacer) filterPaths(envvars map[string]string) []string {
 	if len(envvars) == 0 {
-		return nil
+		return []string{}
 	}
 	// param path
 	values := make([]string, 0, len(envvars))
