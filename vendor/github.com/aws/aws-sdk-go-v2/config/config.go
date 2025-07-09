@@ -70,10 +70,25 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 	// httpBearerAuth authentication scheme.
 	resolveBearerAuthToken,
 
-	// Sets the sdk app ID if present in shared config profile
+	// Sets the sdk app ID if present in env var or shared config profile
 	resolveAppID,
 
 	resolveBaseEndpoint,
+
+	// Sets the DisableRequestCompression if present in env var or shared config profile
+	resolveDisableRequestCompression,
+
+	// Sets the RequestMinCompressSizeBytes if present in env var or shared config profile
+	resolveRequestMinCompressSizeBytes,
+
+	// Sets the AccountIDEndpointMode if present in env var or shared config profile
+	resolveAccountIDEndpointMode,
+
+	// Sets the RequestChecksumCalculation if present in env var or shared config profile
+	resolveRequestChecksumCalculation,
+
+	// Sets the ResponseChecksumValidation if present in env var or shared config profile
+	resolveResponseChecksumValidation,
 }
 
 // A Config represents a generic configuration value or set of values. This type
@@ -203,7 +218,7 @@ func resolveConfigLoaders(options *LoadOptions) []loader {
 	loaders[0] = loadEnvConfig
 
 	// specification of a profile should cause a load failure if it doesn't exist
-	if os.Getenv(awsProfileEnvVar) != "" || options.SharedConfigProfile != "" {
+	if os.Getenv(awsProfileEnv) != "" || options.SharedConfigProfile != "" {
 		loaders[1] = loadSharedConfig
 	} else {
 		loaders[1] = loadSharedConfigIgnoreNotExist

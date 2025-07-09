@@ -1,225 +1,281 @@
-# aws-env
+# AWS Environment Variable Replacer
 
-This is a small utility to help populate environment variables using secrets stored in AWS Parameter Store.
+A Go library for replacing environment variables and configuration files with values from AWS Systems Manager Parameter Store, using **AWS SDK v2**.
 
-Based loosely on [Droplr/aws-env](https://github.com/Droplr/aws-env): a tool that exports a portion of Parameter Store as environment variables.
+## Features
 
-Instead, this tool allows you greater control over what will be exported, and doesn't force environment variable naming upon you (easier to adapt for exising applications).
+- Replace environment variables with AWS SSM Parameter Store values
+- Replace configuration file values with SSM parameters
+- Concurrent parameter fetching with configurable batch sizes
+- Support for encrypted parameters
+- AWS SDK v2 support with improved performance and features
 
-Jump to:
- - [How it works](#how-it-works)
- - [Usage](#usage)
- - [Auth](#auth)
- - [Region](#region)
- - [Prefix](#prefix)
+## Installation
 
-## How it works
- - aws-env looks through the environment for any variables whose value begins with a special prefix (`awsenv:` by default).
- - It expects that those variables have a parameter store key after the `:`.
- - It looks up each parameter in AWS Parameter Store, and then outputs commands to export the new values.
- - If there are no variables with that prefix, then it does nothing (exits cleanly). This allows for running locally without effect.
-
-
-## Command Usage
-
-1. Add some stuff to the Parameter Store (or use items already there):
-
-```
-$ aws ssm put-parameter --name /testing/my-app/dbpass --value "some-secret-password" --type SecureString --key-id "alias/aws/ssm" --region us-east-1
-$ aws ssm put-parameter --name /testing/my-app/privatekey --value "some-private-key" --type SecureString --key-id "alias/aws/ssm" --region us-east-1
+```bash
+go get github.com/sendgrid/aws-env
 ```
 
-2. Install aws-env using static binary (amd64 only) (choose proper [version](https://github.com/sendgrid/aws-env/releases)). 
+## Quick Start
 
-```
-$ wget https://github.com/sendgrid/aws-env/releases/download/1.4.0/aws-env -O aws-env
-```
+### Environment Variable Replacement
 
-OR build from source in `$GOPATH/src`
+The simplest way to use awsenv is to call `MustReplaceEnv()` which will:
+1. Scan all environment variables for the `awsenv:` prefix
+2. Fetch corresponding values from SSM Parameter Store
+3. Replace the environment variables with the fetched values
 
-```
-$ go get github.com/sendgrid/aws-env/cmd/aws-env
-```
+```go
+package main
 
-3. Start your application with aws-env
+import "github.com/sendgrid/aws-env"
 
-```
-$ aws-env ./my-app --app-flag app-args
-```
-
-4. Multiple commands can be run after updating the environment once by
-   invoking a shell:
-
-```
-$ aws-env sh -c 'command1 | command2; command3'
-```
-
-5. Alternatively (but not recommended), use aws-env to output
-   bash-compatible export statements.
-
-```
-$ eval $(./aws-env) && ./my-app
-```
-
-Under the hood, aws-env will scan existing environment variable values for
-any that begin with the prefix `awsenv:`. It will then export new values for
-those using Parameter Store.
-
-For example, if you had:
-
-```
-$ export DB_PASSWORD=awsenv:/testing/my-app/dbpass
-$ export PRIVATE_KEY=awsenv:/testing/my-app/privatekey
-```
-
-Running `aws-env` in the command invocation style has similar behavior to
-the unix `env` command:
-
-```
-$ export DB_USERNAME=$'some-secret-password'
-$ export PRIVATE_KEY=$'some-private-key'
-```
-
-### Use as a Go library (with aws-sdk-go v1)
-
-If running a Go application with access to `AWS_ACCESS_KEY_ID`,
-`AWS_SECRET_ACCESS_KEY`, and related environment variables (such as when
-running a Go binary as an AWS Lambda function), the following code is
-sufficient to get the process' environment replaced as described above:
-
-```
-import (
-  "github.com/aws/aws-sdk-go/aws"
-  "github.com/aws/aws-sdk-go/aws/session"
-  "github.com/aws/aws-sdk-go/service/ssm"
-  "github.com/sendgrid/aws-env/awsenv"
-  v1 "github.com/sendgrid/aws-env/awsenv/v1"
-)
-
-func init() {
-  cfg := &aws.Config{Region: aws.String(os.Getenv("AWS_REGION"))}
-  sess := session.Must(session.NewSession(cfg))
-
-  paramsGetter := v1.NewParamsGetter(ssm.New(sess))
-  replacer := awsenv.NewReplacer(awsenv.DefaultPrefix, paramsGetter)
-
-  ctx := context.Background()
-  err := replacer.ReplaceAll(ctx)
-  if err != nil {
-    // handle error
-  }
-
-  // optionally further process environment, e.g. via envconfig
+func main() {
+    // This will replace any environment variables that start with "awsenv:"
+    // with their corresponding values from SSM Parameter Store
+    awsenv.MustReplaceEnv()
+    
+    // Your application code here...
 }
 ```
 
-aws-sdk-go-v2 can be used instead by importing the awsenv/v2 subpackage, and
-initializing and passing an aws-sdk-go-v2 SSM client.
+#### Example Environment Variables
 
-### Use to update a file in-place
-
-The `-f` flag can be used to pass in a file to update in-place rather than 
-operating on the environment variables. It will only update the first 
-occurrence per line. It stops parsing when a character is no longer a valid
-Parameter Store path. 
-
-Example usage
+```bash
+export DATABASE_URL="awsenv:/myapp/database/url"
+export API_KEY="awsenv:/myapp/secrets/api-key"
+export DEBUG_MODE="true"  # This won't be replaced (no prefix)
 ```
-$ mrroboto upload -p /path/to/the/username -v localtestuser               
-2019/03/13 14:15:04 parameter=/path/to/the/username regions=[us-east-1 us-east-2 us-west-1 us-west-2]
 
-$ mrroboto upload -p /path/to/the/password -v localtestpass            
-2019/03/13 14:15:14 parameter=/path/to/the/password regions=[us-east-1 us-east-2 us-west-1 us-west-2]
+After calling `MustReplaceEnv()`, the environment variables will contain the actual values from Parameter Store.
 
-$ cat test.txt4                                                           
-mysql_users:
- (
-    {
-        username = "awsenv:/path/to/the/username"
-        password = "awsenv:/path/to/the/password"
-        default_hostgroup = 0
-        max_connections=1000
-        default_schema="information_schema"
-        active = 1
+### Custom Configuration
+
+For more control over the AWS configuration:
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/sendgrid/aws-env"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // Load custom AWS config
+    cfg, err := config.LoadDefaultConfig(ctx, 
+        config.WithRegion("us-west-2"),
+    )
+    if err != nil {
+        panic(err)
     }
- )
+    
+    // Use custom config
+    awsenv.MustReplaceEnvWithConfig(ctx, cfg)
+}
+```
 
-$ ./aws-env -f test.txt4                                                  
-INFO[0000] aws-env starting                              app_version=0.0.1 built_at="Wed Mar 13 20:12:42 UTC 2019" git_hash=545515b6b6646f1bd2f95dea13478066782deb0c
+### Programmatic Parameter Fetching
 
+You can also use the library programmatically to fetch specific parameters:
 
-$ cat test.txt4                                                          
-mysql_users:
- (
-    {
-        username = "localtestuser"
-        password = "localtestpass"
-        default_hostgroup = 0
-        max_connections=1000
-        default_schema="information_schema"
-        active = 1
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/aws/aws-sdk-go-v2/service/ssm"
+    "github.com/sendgrid/aws-env"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // Load AWS config
+    cfg, err := config.LoadDefaultConfig(ctx)
+    if err != nil {
+        panic(err)
     }
- )
+    
+    // Create SSM client and parameter getter
+    ssmClient := ssm.NewFromConfig(cfg)
+    getter := awsenv.NewParamsGetter(ssmClient)
+    
+    // Fetch specific parameters
+    params, err := getter.GetParams(ctx, []string{
+        "/myapp/database/url",
+        "/myapp/secrets/api-key",
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Database URL: %s\n", params["/myapp/database/url"])
+    fmt.Printf("API Key: %s\n", params["/myapp/secrets/api-key"])
+}
 ```
 
-### Example Dockerfile
+### File Replacement
 
-```
-FROM alpine
+You can also replace values in configuration files:
 
-RUN apk update && apk upgrade && \
-  apk add --no-cache openssl ca-certificates
+```go
+package main
 
-RUN wget https://github.com/sendgrid/aws-env/releases/download/1.4.0/aws-env -O /bin/aws-env && \
-  chmod +x /bin/aws-env
+import (
+    "context"
+    "github.com/sendgrid/aws-env"
+)
 
-CMD aws-env --region us-east-2 /my-app
-```
-
-Alternatively you can directly copy the binary from the existing Docker image (internal SendGrid use only):
-```
-COPY --from=docker.sendgrid.net/sendgrid/aws-env:1.4.0 /usr/local/bin/aws-env /usr/bin/aws-env
-```
-
-### Use as a Docker image
-Starting with version `v1.2.1`, we publish a Docker image that contains the `aws-env` binary.
-
-## Auth
-aws-env exposes a `--profile` flag (or `AWS_ENV_PROFILE`) for use when
-running locally. This allows you to use the assume role tool and then
-specify the profile. Otherwise, it will first look for a local metadata
-service (if running in EC2 or on-prem Kubernetes), and then fall back to
-environment variable auth.
-
-## Region
-aws-env defaults to looking at parameter store in the `us-east-1` region.
-You can override this with the `--region` flag (or `AWS_ENV_REGION`).
-
-## Prefix
-The default environment variable value prefix is `awsenv:`, this can be
-changed using the `--prefix` flag (or `AWS_ENV_PREFIX` env var).
-
-## Assume Role
-aws-env exposes an `--assume-role` flag (or `AWS_ENV_ASSUME_ROLE`). This can
-be used to further assume roles if you have to gain access using a chain of
-roles.
-
-### Example Assume Role
-In Kubernetes, if you are using Annotations with a service role, `kube2iam`
-will assume your service role using the metadata service. You can then use
-the `--assume-role` flag to have your service role assume the ssm role to
-retrieve securely stored parameters with aws-env.
-
-## Considerations
-
-* When used without a command, aws-env uses `$'string'` notation to support
-  multi-line variables export. For this reason, to use aws-env in this way,
-  it's required to switch shell to /bin/bash:
-
-```
-CMD ["/bin/bash", "-c", "eval $(aws-env) && ./my-app"]
+func main() {
+    ctx := context.Background()
+    
+    // Create a file replacer
+    getter := awsenv.NewParamsGetterFromConfig(cfg)
+    fileReplacer := awsenv.NewFileReplacer("awsenv:", "/path/to/config.conf", getter)
+    
+    // Replace all awsenv: prefixed values in the file
+    err := fileReplacer.ReplaceAll(ctx)
+    if err != nil {
+        panic(err)
+    }
+}
 ```
 
-This isn't necessary if your Docker image's default shell is already bash.
+## Configuration
 
-Using the command invocation style does not have this limitation.
+### Environment Variable Prefix
+
+By default, awsenv looks for environment variables with the `awsenv:` prefix. You can use a custom prefix:
+
+```go
+replacer := awsenv.NewReplacer("myprefix:", getter)
+```
+
+### AWS Credentials
+
+awsenv uses the standard AWS credential chain:
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. Shared credentials file (`~/.aws/credentials`)
+3. IAM instance profile (when running on EC2)
+4. IAM roles for service accounts (when running on EKS)
+
+### Required IAM Permissions
+
+Your AWS credentials need the following IAM permissions:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameters"
+            ],
+            "Resource": "arn:aws:ssm:*:*:parameter/*"
+        }
+    ]
+}
+```
+
+## Migration from AWS SDK v1
+
+This library has been updated to use AWS SDK v2. If you were using a previous version with SDK v1, here are the key changes:
+
+### What's New in v2
+
+- **Better Performance**: Improved connection pooling and request handling
+- **Smaller Binary Size**: Modular architecture reduces dependency bloat  
+- **Context Support**: Built-in context support for better cancellation handling
+- **Improved Error Handling**: More structured and actionable error responses
+
+### Breaking Changes
+
+- The `v1/` package has been removed
+- The `v2/` package has been merged into the main package
+- AWS SDK v1 dependencies have been removed
+
+### Migration Path
+
+**Before (v1):**
+```go
+import "github.com/sendgrid/aws-env/v1"
+
+v1.MustReplaceEnv()
+```
+
+**After (v2):**
+```go
+import "github.com/sendgrid/aws-env"
+
+awsenv.MustReplaceEnv()
+```
+
+The core functionality remains the same, but you now get all the benefits of AWS SDK v2.
+
+## Error Handling
+
+### Panicking Functions
+
+- `MustReplaceEnv()` - Panics on any error
+- `MustReplaceEnvWithContext()` - Panics on any error
+- `MustReplaceEnvWithConfig()` - Panics on any error
+
+### Non-Panicking Functions
+
+- `replacer.ReplaceAll()` - Returns error
+- `getter.GetParams()` - Returns error
+
+```go
+replacer := awsenv.NewReplacer(awsenv.DefaultPrefix, getter)
+err := replacer.ReplaceAll(ctx)
+if err != nil {
+    // Handle error appropriately
+    log.Printf("Failed to replace environment variables: %v", err)
+}
+```
+
+## Performance
+
+### Concurrent Fetching
+
+awsenv fetches parameters concurrently in batches. The default batch size is 10 (AWS SSM limit), but this is handled automatically.
+
+### Caching
+
+For applications that need to fetch parameters multiple times, consider implementing a caching layer:
+
+```go
+type CachedGetter struct {
+    getter awsenv.ParamsGetter
+    cache  map[string]string
+    mu     sync.RWMutex
+}
+
+// Implement your own caching logic as needed
+```
+
+## Examples
+
+See the test files for more usage examples:
+- `aws_test.go` - Basic parameter fetching tests
+- `replacer_test.go` - Environment replacement tests  
+- `file_replacer_test.go` - File replacement tests
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for your changes
+4. Run `go test ./...` to ensure all tests pass
+5. Submit a pull request
+
+## License
+
+This project is licensed under the same terms as the original aws-env project.

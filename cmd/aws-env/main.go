@@ -8,8 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sendgrid/aws-env/awsenv"
-	v1 "github.com/sendgrid/aws-env/awsenv/v1"
+	awsenv "github.com/sendgrid/aws-env"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
@@ -166,7 +165,9 @@ func run(c *cli.Context) error {
 }
 
 func envReplacement(c *cli.Context, ssmClient *ssm.SSM) error {
-	r := awsenv.NewReplacer(prefix, v1.NewParamsGetter(ssmClient))
+	// Create a bridge between v1 SSM client and v2 interface
+	getter := &v1SSMGetter{client: ssmClient}
+	r := awsenv.NewReplacer(prefix, getter)
 
 	if c.NArg() == 0 {
 		return dump(r)
@@ -177,7 +178,9 @@ func envReplacement(c *cli.Context, ssmClient *ssm.SSM) error {
 }
 
 func fileReplacement(ssmClient *ssm.SSM) error {
-	r := awsenv.NewFileReplacer(prefix, fileName, v1.NewParamsGetter(ssmClient))
+	// Create a bridge between v1 SSM client and v2 interface
+	getter := &v1SSMGetter{client: ssmClient}
+	r := awsenv.NewFileReplacer(prefix, fileName, getter)
 
 	ctx := context.Background()
 	return r.ReplaceAll(ctx)
@@ -254,6 +257,43 @@ func invoke(r *awsenv.Replacer, prog string, args []string) error {
 			return nil
 		}
 	}
+}
+
+// v1SSMGetter is a bridge that adapts AWS SDK v1 SSM client to work with the v2-based library interface
+type v1SSMGetter struct {
+	client *ssm.SSM
+}
+
+func (v *v1SSMGetter) GetParams(ctx context.Context, names []string) (map[string]string, error) {
+	// Convert string slice to AWS v1 format
+	ptrs := make([]*string, len(names))
+	for i := range names {
+		ptrs[i] = aws.String(names[i])
+	}
+
+	input := &ssm.GetParametersInput{
+		Names:          ptrs,
+		WithDecryption: aws.Bool(true),
+	}
+
+	resp, err := v.client.GetParametersWithContext(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert response to map
+	result := make(map[string]string, len(resp.Parameters))
+	for _, param := range resp.Parameters {
+		if param.Name != nil && param.Value != nil {
+			result[*param.Name] = *param.Value
+		}
+	}
+
+	return result, nil
+}
+
+func (v *v1SSMGetter) GetParamsLimit() int {
+	return 10 // AWS SSM limit
 }
 
 func main() {
