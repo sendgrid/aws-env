@@ -19,7 +19,14 @@ func TestReplacer_panic(t *testing.T) {
 }
 
 func TestReplacer_MustReplaceAll(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	env := fakeEnv{
 		"DB_PASSWORD": "test",                    // no matching prefix
 		"SOME_SECRET": "awsenv:/param/path/here", // match
@@ -36,7 +43,14 @@ func TestReplacer_MustReplaceAll(t *testing.T) {
 }
 
 func TestReplacer_ReplaceAll_noop(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	mockGetter := mockParamsGetter(func(context.Context, []string) (map[string]string, error) {
 		return nil, errors.New("forced")
 	})
@@ -52,7 +66,14 @@ func TestReplacer_ReplaceAll_noop(t *testing.T) {
 }
 
 func TestReplacer_ReplaceAll_MultipleSameValue(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	env := fakeEnv{
 		"DB_PASSWORD":       "test",                       // no matching prefix
 		"SOME_SECRET":       "awsenv:/param/path/here",    // match
@@ -82,7 +103,14 @@ func TestReplacer_ReplaceAll_MultipleSameValue(t *testing.T) {
 }
 
 func TestReplacer_ReplaceAll_MultipleSameValueNotMatchingValue(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	env := fakeEnv{
 		"DB_PASSWORD":             "test",                        // no matching prefix
 		"SOME_SECRET":             "awsenv:/param/path/here",     // match
@@ -116,7 +144,14 @@ func TestReplacer_ReplaceAll_MultipleSameValueNotMatchingValue(t *testing.T) {
 }
 
 func TestReplacer_ReplaceAll_NotFound(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	env := fakeEnv{
 		"DB_PASSWORD": "test",                    // no matching prefix
 		"SOME_SECRET": "awsenv:/param/path/here", // match
@@ -134,7 +169,14 @@ func TestReplacer_ReplaceAll_NotFound(t *testing.T) {
 }
 
 func TestReplacer_ReplaceAll_Missing(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
 	env := fakeEnv{
 		"SOME_SECRET": "awsenv:/param/path/here/doesnt/exist", // match
 	}
@@ -203,7 +245,7 @@ func TestReplacer_filterPaths(t *testing.T) {
 			name:   "empty",
 			prefix: "",
 			input:  nil,
-			want:   []string{},
+			want:   nil,
 		},
 		{
 			name:   "default",
@@ -216,6 +258,15 @@ func TestReplacer_filterPaths(t *testing.T) {
 			prefix: "pre:",
 			input:  map[string]string{"X": "1", "Y": "pre:/y", "Z": "awsenv:/z"},
 			want:   []string{"/y"},
+		},
+		{
+			name:   "fully_qualified_arn",
+			prefix: "awsenv:",
+			input: map[string]string{
+				"X": "1",
+				"Y": "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/cross/account/secret",
+			},
+			want: []string{"arn:aws:ssm:us-east-1:123456789012:parameter/cross/account/secret"},
 		},
 	}
 
@@ -274,6 +325,31 @@ func TestReplacer_applyParamPathValues(t *testing.T) {
 			replaceWithValues: map[string]string{"/a": "A", "/b": "B"},
 			want:              map[string]string{"x": "A", "y": "B"},
 		},
+		{
+			name:   "replace_with_fully_qualified_arn",
+			prefix: "awsenv:",
+			src: map[string]string{
+				"CROSS_ACCOUNT_SECRET": "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/cross/account/secret",
+			},
+			replaceWithValues: map[string]string{"/cross/account/secret": "secret_value"},
+			want:              map[string]string{"CROSS_ACCOUNT_SECRET": "secret_value"},
+		},
+		{
+			name:   "replace_mixed_arn_and_plain",
+			prefix: "awsenv:",
+			src: map[string]string{
+				"LOCAL_SECRET":         "awsenv:/local/secret",
+				"CROSS_ACCOUNT_SECRET": "awsenv:arn:aws:ssm:us-west-2:999999999999:parameter/remote/secret",
+			},
+			replaceWithValues: map[string]string{
+				"/local/secret":  "local_val",
+				"/remote/secret": "remote_val",
+			},
+			want: map[string]string{
+				"LOCAL_SECRET":         "local_val",
+				"CROSS_ACCOUNT_SECRET": "remote_val",
+			},
+		},
 	}
 
 	for idx, test := range tests {
@@ -285,4 +361,52 @@ func TestReplacer_applyParamPathValues(t *testing.T) {
 			require.Equal(t, want, got, "applyParamPathValues(%v, %v) = %v, want %v", test.src, test.replaceWithValues, got, want)
 		})
 	}
+}
+
+func TestReplacer_ReplaceAll_FullyQualifiedARN(t *testing.T) {
+	// Not parallel: this test mutates global environ/setenv via fakeEnv.install()
+	origEnviron := environ
+	origSetenv := setenv
+	t.Cleanup(func() {
+		environ = origEnviron
+		setenv = origSetenv
+	})
+
+	env := fakeEnv{
+		"DB_PASSWORD":          "test",
+		"LOCAL_SECRET":         "awsenv:/param/path/here",
+		"CROSS_ACCOUNT_SECRET": "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/remote/secret",
+	}
+	env.install()
+
+	getter := mockParamsGetter(func(_ context.Context, paths []string) (map[string]string, error) {
+		store := map[string]string{
+			"/param/path/here": "local_val",
+			"/remote/secret":   "remote_val",
+		}
+		// SSM API returns results keyed by plain parameter path even when queried with full ARN
+		result := make(map[string]string, len(paths))
+		for _, p := range paths {
+			plain := stripARNPrefix(p)
+			val, ok := store[plain]
+			if !ok {
+				return nil, fmt.Errorf("not found: %s", p)
+			}
+			result[plain] = val
+		}
+		return result, nil
+	})
+
+	r := NewReplacer(DefaultPrefix, getter)
+	ctx := context.Background()
+	err := r.ReplaceAll(ctx)
+
+	require.NoError(t, err)
+
+	want := fakeEnv{
+		"DB_PASSWORD":          "test",
+		"LOCAL_SECRET":         "local_val",
+		"CROSS_ACCOUNT_SECRET": "remote_val",
+	}
+	require.Equal(t, want, env)
 }
