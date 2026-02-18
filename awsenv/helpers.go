@@ -3,6 +3,7 @@ package awsenv
 import "regexp"
 
 // ssmARNPrefix matches the fully qualified SSM parameter ARN prefix used for cross-account parameters.
+// note: this will not cover AWS GovCloud ARNs
 //
 //	example: `arn:aws:ssm:<region>:<account_id>:parameter<parameter_path>`
 var ssmARNPrefix = regexp.MustCompile(`arn:aws:ssm:[^:]+:[^:]+:parameter`)

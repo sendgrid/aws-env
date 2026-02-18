@@ -348,5 +348,5 @@ func writeTempFile(contents string) (string, func()) {
 		log.Fatal(err)
 	}
 
-	return tmpfile.Name(), func() { os.Remove(fName) } //nolint: errcheck,gosec
+	return tmpfile.Name(), func() { os.Remove(tmpfile.Name()) } //nolint: errcheck,gosec
 }
