@@ -354,7 +354,7 @@ func TestReplacer_applyParamPathValues(t *testing.T) {
 
 	for _, test := range tests {
 		test := test
-		t.Run(fmt.Sprintf(test.name), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			r := &Replacer{prefix: test.prefix}
 			got, want := r.applyParamPathValues(test.src, test.replaceWithValues), test.want
