@@ -1,5 +1,19 @@
 package awsenv
 
+import "regexp"
+
+// ssmARNPrefix matches the fully qualified SSM parameter ARN prefix used for cross-account parameters.
+// note: this will not cover AWS GovCloud ARNs
+//
+//	example: `arn:aws:ssm:<region>:<account_id>:parameter<parameter_path>`
+var ssmARNPrefix = regexp.MustCompile(`arn:aws:ssm:[^:]+:[^:]+:parameter`)
+
+// stripARNPrefix removes the SSM ARN prefix from a parameter path, returning the plain path.
+// If the path does not contain an ARN prefix, it is returned unchanged.
+func stripARNPrefix(path string) string {
+	return ssmARNPrefix.ReplaceAllString(path, "")
+}
+
 func min(x, y int) int {
 	if x < y {
 		return x

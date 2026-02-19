@@ -83,6 +83,42 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+func TestStripARNPrefix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "plain_path",
+			input: "/my/param/path",
+			want:  "/my/param/path",
+		},
+		{
+			name:  "full_arn",
+			input: "arn:aws:ssm:us-east-1:123456789012:parameter/my/param/path",
+			want:  "/my/param/path",
+		},
+		{
+			name:  "empty_string",
+			input: "",
+			want:  "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripARNPrefix(test.input)
+			if got != test.want {
+				t.Errorf("stripARNPrefix(%q) = %q, want %q", test.input, got, test.want)
+			}
+		})
+	}
+}
+
 func TestChunk(t *testing.T) {
 	tests := []struct {
 		size  int

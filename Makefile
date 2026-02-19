@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.18
+GO_VERSION ?= 1.24
 GO_CI_VERSION = v1.55.0
 BINARIES = aws-env
 WD ?= $(shell pwd)

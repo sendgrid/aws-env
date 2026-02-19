@@ -3,6 +3,7 @@ package awsenv
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -64,6 +65,24 @@ mysql_users:
 		active = 1,
 		admin_username = "awsenv:/path/to/the/username",
 		admin_password = "awsenv:/path/to/the/password",
+	}
+ )
+`
+	sampleCnfFile5 = `
+mysql_users:
+ (
+	{
+		username = "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/remote/username",
+		password = "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/remote/password",
+	}
+ )
+`
+	sampleCnfFile6 = `
+mysql_users:
+ (
+	{
+		username = "awsenv:/path/to/the/username",
+		password = "awsenv:arn:aws:ssm:us-east-1:123456789012:parameter/remote/password",
 	}
  )
 `
@@ -214,6 +233,101 @@ mysql_users:
 	require.Equal(t, expectedContent, string(f))
 }
 
+func TestFileReplacer_ReplaceAll_CrossAccountARN(t *testing.T) {
+
+	fileName, cleanup := writeTempFile(sampleCnfFile5)
+	defer cleanup()
+
+	oldContent, err := ioutil.ReadFile(fileName) //nolint: gosec
+	require.NoError(t, err)
+	require.Equal(t, sampleCnfFile5, string(oldContent))
+
+	// Use mockParamsGetter to simulate SSM's behavior of stripping ARN prefixes from result keys
+	getter := mockParamsGetter(func(_ context.Context, paths []string) (map[string]string, error) {
+		store := map[string]string{
+			"/remote/username": "remote_user",
+			"/remote/password": "remote_pass",
+		}
+		result := make(map[string]string, len(paths))
+		for _, p := range paths {
+			plain := stripARNPrefix(p)
+			val, ok := store[plain]
+			if !ok {
+				return nil, fmt.Errorf("not found: %s", p)
+			}
+			result[plain] = val
+		}
+		return result, nil
+	})
+
+	r := NewFileReplacer(DefaultPrefix, fileName, getter)
+
+	ctx := context.Background()
+	err = r.ReplaceAll(ctx)
+	require.NoError(t, err, "expected no error")
+
+	expectedContent := `
+mysql_users:
+ (
+	{
+		username = "remote_user",
+		password = "remote_pass",
+	}
+ )
+`
+	f, err := ioutil.ReadFile(fileName) //nolint: gosec
+	require.NoError(t, err)
+
+	require.Equal(t, expectedContent, string(f))
+}
+
+func TestFileReplacer_ReplaceAll_MixedLocalAndCrossAccount(t *testing.T) {
+
+	fileName, cleanup := writeTempFile(sampleCnfFile6)
+	defer cleanup()
+
+	oldContent, err := ioutil.ReadFile(fileName) //nolint: gosec
+	require.NoError(t, err)
+	require.Equal(t, sampleCnfFile6, string(oldContent))
+
+	getter := mockParamsGetter(func(_ context.Context, paths []string) (map[string]string, error) {
+		store := map[string]string{
+			"/path/to/the/username": "local_user",
+			"/remote/password":      "remote_pass",
+		}
+		result := make(map[string]string, len(paths))
+		for _, p := range paths {
+			plain := stripARNPrefix(p)
+			val, ok := store[plain]
+			if !ok {
+				return nil, fmt.Errorf("not found: %s", p)
+			}
+			result[plain] = val
+		}
+		return result, nil
+	})
+
+	r := NewFileReplacer(DefaultPrefix, fileName, getter)
+
+	ctx := context.Background()
+	err = r.ReplaceAll(ctx)
+	require.NoError(t, err, "expected no error")
+
+	expectedContent := `
+mysql_users:
+ (
+	{
+		username = "local_user",
+		password = "remote_pass",
+	}
+ )
+`
+	f, err := ioutil.ReadFile(fileName) //nolint: gosec
+	require.NoError(t, err)
+
+	require.Equal(t, expectedContent, string(f))
+}
+
 func writeTempFile(contents string) (string, func()) {
 
 	uid, err := uuid.NewV4()
@@ -234,5 +348,5 @@ func writeTempFile(contents string) (string, func()) {
 		log.Fatal(err)
 	}
 
-	return tmpfile.Name(), func() { os.Remove(fName) } //nolint: errcheck,gosec
+	return tmpfile.Name(), func() { os.Remove(tmpfile.Name()) } //nolint: errcheck,gosec
 }

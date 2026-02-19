@@ -75,15 +75,17 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 		}
 
 		path := strings.FieldsFunc(line[idx+len(r.prefix):], splitPath)[0]
+		plainPath := stripARNPrefix(path)
 
 		// if we haven't seen the path yet, init the slice
-		if _, ok := replacementIndices[path]; !ok {
-			replacementIndices[path] = make([]replacementIndex, 0, 4)
+		if _, ok := replacementIndices[plainPath]; !ok {
+			replacementIndices[plainPath] = make([]replacementIndex, 0, 4)
 		}
 
-		replacementIndices[path] = append(replacementIndices[path], replacementIndex{
-			lineNumber: i,
-			index:      idx,
+		replacementIndices[plainPath] = append(replacementIndices[plainPath], replacementIndex{
+			lineNumber:   i,
+			index:        idx,
+			originalPath: path,
 		})
 		paths = append(paths, path)
 	}
@@ -107,7 +109,7 @@ func (r *FileReplacer) ReplaceAll(ctx context.Context) error {
 
 			ln := replacement.lineNumber
 			idx := replacement.index
-			lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(r.prefix)+len(path):])
+			lines[ln] = fmt.Sprintf("%s%s%s", lines[ln][:idx], value, lines[ln][idx+len(r.prefix)+len(replacement.originalPath):])
 		}
 	}
 
@@ -129,12 +131,13 @@ func (r *FileReplacer) MustReplaceAll(ctx context.Context) {
 }
 
 type replacementIndex struct {
-	lineNumber int
-	index      int
+	lineNumber   int
+	index        int
+	originalPath string
 }
 
 // return false if the given rune isn't an acceptable Parameter Store path
 func splitPath(r rune) bool {
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
-		r != '/' && r != '_' && r != '-' && r != '.'
+		r != '/' && r != '_' && r != '-' && r != '.' && r != ':'
 }

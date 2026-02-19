@@ -2,3 +2,5 @@
 /coverage.*
 version_wf
 .DS_Store
+
+.idea

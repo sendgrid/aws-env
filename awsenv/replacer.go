@@ -128,6 +128,8 @@ func (r *Replacer) applyParamPathValues(srcEnv map[string]string, replaceWithVal
 		}
 
 		lookupValue := strings.TrimPrefix(value, r.prefix)
+		// values from the env will still include the fully qualified prefix, but the replacement will not
+		lookupValue = stripARNPrefix(lookupValue)
 		if val, ok := replaceWithValues[lookupValue]; ok {
 			srcEnv[name] = val
 		}
@@ -171,6 +173,9 @@ func fetch(ctx context.Context, ssm ParamsGetter, paths []string) (map[string]st
 	merge(dest, results)
 
 	for _, path := range paths {
+		// results from GetParams include only the path (not fully qualified), but the original paths include the fully
+		// qualified name.
+		path = stripARNPrefix(path)
 		_, ok := dest[path]
 		if !ok {
 			return dest, errors.Errorf("awsenv: param not found: %q", path)
